@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 11 題庫 — Epileptic Seizure Prediction, Detection, and Localization
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    ============================================================ */
 const QUESTIONS_CH11 = [
   {

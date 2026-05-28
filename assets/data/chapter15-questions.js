@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 15 題庫 — EEG Analysis of Neurodegenerative Diseases
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    題庫格式：
      { q: 題目, options: [...], answer: 正解索引(從0起), explain: 解析 }
    ============================================================ */

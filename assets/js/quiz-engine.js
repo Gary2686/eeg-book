@@ -7,7 +7,7 @@
        bank: QUESTIONS_CH01,
        count: 10,
      });
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    ============================================================ */
 (function (global) {
   "use strict";

@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 12 題庫 — Sleep Recognition, Scoring, and Abnormalities
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    ============================================================ */
 const QUESTIONS_CH12 = [
   {

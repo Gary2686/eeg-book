@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 8 — 互動模組
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    涵蓋：
      1. 腦網絡互動（節點點擊顯示度與相連對象）
      2. 三種拓撲切換（regular / small-world / random）

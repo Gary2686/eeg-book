@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 14 題庫 — EEG-Based Emotion Recognition and Classification
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    ============================================================ */
 const QUESTIONS_CH14 = [
   {

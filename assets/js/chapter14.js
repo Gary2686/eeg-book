@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 14 — 互動模組
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    涵蓋：
      1. Valence-Arousal 二維平面 (情緒點選)
      2. Frontal Alpha Asymmetry (FAA) 互動條形圖

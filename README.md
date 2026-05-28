@@ -2,7 +2,7 @@
 
 依 Sanei &amp; Chambers, *EEG Signal Processing and Machine Learning, 2nd Edition* (2022) 設計的線上互動課程。**18 章完整內容、互動 SVG 圖示、隨機 10 題測驗**。
 
-> 作者與授課：葉欲禾 (Gary Yu-Ho YEH)
+> 作者與授課：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
 
 ## 線上瀏覽
 
@@ -85,4 +85,4 @@ python -m http.server 8088
 
 ---
 
-© 版權所有　葉欲禾 (Gary Yu-Ho YEH)
+© 版權所有　葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)

@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 13 題庫 — EEG-Based Mental Fatigue Monitoring
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    ============================================================ */
 const QUESTIONS_CH13 = [
   {

@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 4 題庫 — Fundamentals of EEG Signal Processing
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    ============================================================ */
 const QUESTIONS_CH04 = [
   {

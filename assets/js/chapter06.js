@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 6 — Chaos and Dynamical Analysis 互動模組
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    涵蓋：
      1. Lyapunov 收斂 vs. 發散動畫 (logistic map)
      2. 相空間嵌入示意 (正弦 / 混沌 / 雜訊)

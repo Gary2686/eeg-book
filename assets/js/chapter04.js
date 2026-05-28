@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 4 — 互動模組
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    涵蓋：
      1. STFT / Wavelet / Wigner-Ville 時頻平面視窗形狀比較
      2. 濾波器頻率響應（Low/High/Band/Notch）切換

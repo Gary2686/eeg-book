@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 11 — 互動模組
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    涵蓋：
      1. Pre-ictal / Ictal / Post-ictal / Inter-ictal 腦波切換
      2. Seizure Detection 流程方塊

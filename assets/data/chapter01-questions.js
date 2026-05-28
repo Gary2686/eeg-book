@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 1 題庫 — Introduction to Electroencephalography
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    題庫格式：
      { q: 題目, options: [...], answer: 正解索引(從0起), explain: 解析 }
    未來可改由後端 /quiz/ch01/bank 取回 JSON，僅需在 chapter01.html

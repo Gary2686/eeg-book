@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 7 — Machine Learning for EEG 互動模組
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    涵蓋：
      1. 決策邊界互動 (LDA vs. SVM RBF vs. KNN)
      2. CNN 架構互動圖

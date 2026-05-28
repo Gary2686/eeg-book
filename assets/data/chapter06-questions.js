@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 6 題庫 — Chaos and Dynamical Analysis
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    ============================================================ */
 const QUESTIONS_CH06 = [
   {

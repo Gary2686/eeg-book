@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 5 — EEG Signal Decomposition 互動模組
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    涵蓋：
      1. BSS 玩具示範：源 vs. 觀測 vs. ICA 還原
      2. ICA 旋轉收斂示意

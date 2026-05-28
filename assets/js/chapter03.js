@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 3 — 互動模組
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    涵蓋：
      1. Hodgkin-Huxley AP 視覺化（膜電位 + 閘門變數 m/h/n 同步動畫）
      2. GMM (Gaussian Mixture Model) 三分量權重互動

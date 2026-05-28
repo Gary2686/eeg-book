@@ -1,7 +1,7 @@
 /* ============================================================
    Chapter 18 題庫 — Joint Analysis of EEG and Other
                     Simultaneously Recorded Modalities
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    ============================================================ */
 const QUESTIONS_CH18 = [
   {

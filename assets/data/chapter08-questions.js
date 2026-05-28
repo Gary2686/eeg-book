@@ -1,6 +1,6 @@
 /* ============================================================
    Chapter 8 題庫 — Brain Connectivity and Its Applications
-   作者：葉欲禾 (Gary Yu-Ho YEH)
+   作者：葉欲禾 (Gary Yu-Ho YEH) ・ 鄭鈞 (Jacob Cheng)
    ============================================================ */
 const QUESTIONS_CH08 = [
   {
