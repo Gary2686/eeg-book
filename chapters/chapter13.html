@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十三章 — EEG 精神疲勞監測 | EEG Signal Processing 互動教材</title>
+<meta name="description" content="EEG Signal Processing and Machine Learning, 2nd Edition — Chapter 13 EEG-Based Mental Fatigue Monitoring 互動式教學。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css?v=1">
+</head>
+<body>
+
+<!-- ===== 上方導覽 ===== -->
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html" class="site-logo">
+      <svg class="site-logo-icon" viewBox="0 0 32 32" fill="none">
+        <path d="M2 16 Q5 6 9 16 T16 16 T23 16 T30 16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+      </svg>
+      EEG 互動教材
+    </a>
+    <nav class="site-nav">
+      <a href="#s-overview">概覽</a>
+      <a href="#s-intro">13.1 引言</a>
+      <a href="#s-features">13.2 特徵+ML</a>
+      <a href="#s-sync">13.3 同步性</a>
+      <a href="#s-erp">13.4 ERP</a>
+      <a href="#s-p3">13.5 P3a/P3b</a>
+      <a href="#s-hybrid">13.6 EEG+ERP</a>
+      <a href="#s-conn">13.7 連結性</a>
+      <a href="#s-dl">13.8 深度學習</a>
+      <a href="#s-summary">13.9 摘要</a>
+      <a href="#s-quiz">📝 測驗</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== Hero ===== -->
+<section class="chapter-hero">
+  <div class="chapter-hero-inner">
+    <span class="chapter-tag">CHAPTER 13</span>
+    <h1 class="chapter-title">EEG-Based Mental Fatigue Monitoring</h1>
+    <p class="chapter-subtitle">精神疲勞監測：駕駛與飛行員的腦波警報器</p>
+    <div class="chapter-objectives">
+      <h3>🎯 本章學習目標</h3>
+      <ul>
+        <li>分辨『身體疲勞』與『精神疲勞』、『精神疲勞』與『嗜睡 (drowsiness)』的差異。</li>
+        <li>了解三種傳統評估法（問卷、視訊、生理）各自的優缺點。</li>
+        <li>掌握 EEG 在 mental fatigue 上的常用指標：(θ + α) / (α + β)、θ / β、PSD 等。</li>
+        <li>知道 ERP 中 P300、P3a、P3b 等元件如何反映注意力降低。</li>
+        <li>了解同步性 / 連結性 / 複雜度（如 LZC、Kolmogorov entropy）等量化方法。</li>
+        <li>說明 SVM、Random Forest、HMM、CNN、Bi-LSTM 等分類器如何應用到 fatigue detection。</li>
+        <li>初步認識 fatigue 在駕駛、飛行員、ICU 等的高風險應用。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<main class="page">
+
+  <!-- ===== 概覽 ===== -->
+  <section id="s-overview" class="section">
+    <div class="section-header"><span class="section-number">OVERVIEW</span><h2>本章地圖</h2></div>
+    <p>「累」是大家都熟悉的感覺，但要把它變成可量測、能即時警告的<strong>客觀數值</strong>就難了。本章談的「精神疲勞 (mental fatigue)」涵蓋：注意力下降、反應變慢、判斷力降低。EEG 是目前最受關注的測量工具 — 因為腦活動會在你「自己還沒發現」之前就出現變化。</p>
+    <div class="callout key">
+      <div class="callout-title">🧭 本章主軸</div>
+      <strong>「fatigue 不是 sleep」</strong>。整體 EEG 振幅與頻譜常常變化不大，所以要用<strong>更細緻的指標</strong>（頻段比、ERP 振幅/延遲、複雜度、連結性）才能可靠偵測。
+    </div>
+  </section>
+
+  <!-- ===== 13.1 引言 ===== -->
+  <section id="s-intro" class="section">
+    <div class="section-header"><span class="section-number">13.1</span><h2>引言 — 精神疲勞是什麼？</h2></div>
+    <p>Fatigue 是腦活動降低、對外界反應與認知效能下降的狀態。書中明確區分：</p>
+    <ul>
+      <li><strong>Physical fatigue（身體疲勞）</strong>：肌肉無法繼續正常功能。</li>
+      <li><strong>Mental fatigue（精神疲勞）</strong>：腦活動下降、注意力下降；可能伴隨 somnolence（嗜睡），也可能只有注意力降低而<strong>沒有想睡</strong>。</li>
+    </ul>
+
+    <h3>原因與情境</h3>
+    <ul>
+      <li>無聊、憂鬱、疾病、時差、睡眠不足、壓力、過度刺激或刺激不足、長時間工作。</li>
+      <li>多為暫時性；但慢性疲勞（CFS）可持續數月，常找不到明確生理原因。</li>
+      <li>對需長時間專注的職業特別重要：駕駛、飛行員、警衛、ICU 醫護。</li>
+    </ul>
+
+    <h3>三大傳統評估法</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>① 心理量表 (Psychometric)</h4>
+        <div class="pros">便宜、簡單</div>
+        <div class="cons">主觀偏差大</div>
+        <div class="cons">無法即時</div>
+      </div>
+      <div class="compare-card">
+        <h4>② 視訊 (Video)</h4>
+        <div class="pros">非侵入、可遠端</div>
+        <div class="cons">受光線、表情習慣影響</div>
+        <div class="cons">準確度差</div>
+      </div>
+      <div class="compare-card">
+        <h4>③ 生理 (EEG / ECG / EOG)</h4>
+        <div class="pros">客觀、可即時</div>
+        <div class="pros">EEG 能在主觀感受之前先偵測</div>
+        <div class="cons">需要感測器、清理 artefact</div>
+      </div>
+    </div>
+
+    <h3>關鍵研究結論 (Lorist et al.)</h3>
+    <p>實驗發現精神疲勞與下列三點密切相關：</p>
+    <ol>
+      <li>錯誤後的「行為調整」變差。</li>
+      <li>anterior cingulate cortex (ACC) 對效能監控變差。</li>
+      <li>多巴胺從中腦傳到 striatum 與 ACC 的傳遞下降 → 認知控制不全。</li>
+    </ol>
+  </section>
+
+  <!-- ===== 13.2 特徵 + ML ===== -->
+  <section id="s-features" class="section">
+    <div class="section-header"><span class="section-number">13.2</span><h2>特徵擷取 + 機器學習方法</h2></div>
+
+    <h3>EEG 的「黃金頻段比」</h3>
+    <p>儘管 Craig et al. 指出單一頻段功率變化不大，但<strong>多個頻段的比值</strong>對疲勞很敏感。常見的指標：</p>
+    <ul>
+      <li><strong>(P_θ + P_α) / (P_α + P_β)</strong> — 疲勞時上升（多用於駕駛 fatigue）。</li>
+      <li><strong>P_θ / P_β</strong> — 疲勞時上升。</li>
+      <li><strong>P_α / P_β</strong> — 疲勞時上升。</li>
+      <li><strong>P_β</strong>（純 beta power）— 高度警覺/焦慮時上升。</li>
+    </ul>
+    <p>其中 θ = 4–8 Hz、α = 8–13 Hz、β = 13–30 Hz。</p>
+
+    <h3>📈 互動：Theta/Alpha ratio 隨時間變化</h3>
+    <p>下圖模擬一名駕駛 60 分鐘中 (θ+α)/(α+β) 的演變：開始時 alert，逐漸進入 fatigue 區。<strong>拖動下方滑桿</strong>，看不同時間點的腦狀態。</p>
+
+    <div class="interactive">
+      <div class="interactive-title">🚗 駕駛疲勞指標 (θ+α)/(α+β) 變化</div>
+      <div class="svg-figure">
+        <svg id="ratio-plot" viewBox="0 0 720 280" style="width:100%;max-width:760px;background:#fafbff;border-radius:8px;"></svg>
+        <div class="svg-caption">紅點為當前時間；橘色虛線是 alert / fatigue 的閾值（示意）。</div>
+      </div>
+      <div class="interactive-controls">
+        <label style="font-size:13px;color:#475569;">時間 (分鐘)：</label>
+        <input id="ratio-slider" type="range" min="0" max="60" step="1" value="0" style="flex:1;min-width:220px;">
+        <button id="ratio-play" class="btn">▶ 自動播放</button>
+        <button id="ratio-reset" class="btn secondary">↺ 重置</button>
+      </div>
+      <div id="ratio-desc" class="callout info" style="margin-top:12px;"></div>
+    </div>
+
+    <h3>分類器選擇</h3>
+    <ul>
+      <li><strong>HMM</strong>：把 fatigue 變成「隱藏狀態」，從多模態（EEG+EMG+呼吸）推估目前狀態。Liu et al. 用 KPCA + HMM、結合 ApEn 與 Kolmogorov complexity，達 <strong>~84% 準確率</strong>。</li>
+      <li><strong>SVM</strong>：高維特徵的經典工具。</li>
+      <li><strong>Random Forest</strong>：能輸出特徵重要性（feature importance）。</li>
+      <li><strong>Regression / SVR</strong>：適合連續評分而非離散分類。</li>
+      <li><strong>Regularized regression + fuzzy + transfer learning</strong>：解決『跨受試者差異』，做線上校準。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 13.3 同步性 ===== -->
+  <section id="s-sync" class="section">
+    <div class="section-header"><span class="section-number">13.3</span><h2>腦區同步性與相干性</h2></div>
+    <p>除了單通道頻譜，跨通道的<strong>同步性 (synchronization)</strong>、相干性 (coherency) 對 fatigue 也很敏感：</p>
+    <ul>
+      <li>從 alert → fatigue 過程中，左右半球的同步性會發生<strong>漸進變化</strong>。</li>
+      <li>常用度量：<strong>Spectral Coherence Value (SCV)</strong>、Mutual Information (MI)、Phase Locking Value (PLV)。</li>
+      <li>SCV 公式（在頻率 f）：SCV(f) = |Sxy(f)|² / (Sxx(f)·Syy(f))。</li>
+    </ul>
+    <div class="callout info">
+      <div class="callout-title">📌 重要觀察</div>
+      Yan et al. 發現「日常體力活動」之後，<strong>β-band 半球間 SCV 與 LZC 同步上升</strong>，伴隨疲勞主觀分數上升 — 這支持「fatigue = 腦網絡組織降低」的觀點。
+    </div>
+  </section>
+
+  <!-- ===== 13.4 ERP ===== -->
+  <section id="s-erp" class="section">
+    <div class="section-header"><span class="section-number">13.4</span><h2>用 ERP 評估精神疲勞</h2></div>
+    <p>ERP (Event-Related Potential) 是大腦對特定刺激的鎖時反應；最常用於 fatigue 的元件：</p>
+    <ul>
+      <li><strong>P300 (P3)</strong>：刺激後約 300 ms 出現的正向波，與注意力、工作記憶分配相關。疲勞時 <strong>振幅變小、延遲變長</strong>。</li>
+      <li><strong>N200</strong>：在 200 ms 左右的負波，反映目標偵測；疲勞時也減弱。</li>
+      <li><strong>MMN (Mismatch Negativity)</strong>：對「偏離型」刺激的自動性偵測，與意識無關。</li>
+    </ul>
+    <p>因此 ERP 給出比頻譜更直接的「注意力下降」訊號 — 適合線上監測。</p>
+  </section>
+
+  <!-- ===== 13.5 P3a/P3b ===== -->
+  <section id="s-p3" class="section">
+    <div class="section-header"><span class="section-number">13.5</span><h2>P300 的兩個次成分 — P3a 與 P3b</h2></div>
+    <p>P300 其實是兩個子波的疊加：</p>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>P3a — 自動的注意力轉向</h4>
+        <div class="pros">前額/中央分布</div>
+        <div class="pros">對『新奇 (novel)』刺激敏感</div>
+        <div class="cons">受意識控制較少</div>
+      </div>
+      <div class="compare-card">
+        <h4>P3b — 任務相關的目標偵測</h4>
+        <div class="pros">頂葉中央分布</div>
+        <div class="pros">對『預期的 target』敏感</div>
+        <div class="cons">直接反映 working memory 投入</div>
+      </div>
+    </div>
+    <p>為何要分開？因為疲勞或注意力下降，<strong>P3b 衰減比 P3a 明顯</strong>；分開計算能提供更敏感的指標。常用分離方法：BSS、ICA、空間濾波。</p>
+  </section>
+
+  <!-- ===== 13.6 EEG+ERP hybrid ===== -->
+  <section id="s-hybrid" class="section">
+    <div class="section-header"><span class="section-number">13.6</span><h2>EEG–ERP 混合方法：聽覺典範</h2></div>
+    <p>很多研究設計『 auditory oddball paradigm』 — 給受試者連續聽 standard tone，偶爾混入 deviant tone，引發 P3。整段紀錄同時拿到：</p>
+    <ul>
+      <li>「背景 EEG」 — 反映整體腦狀態與頻段比。</li>
+      <li>「ERP」 — 反映此刻的注意力資源投入。</li>
+    </ul>
+    <p>把兩類特徵串接，丟給 ML 分類器，能在多模態的優勢下提升 fatigue 偵測準確率。</p>
+  </section>
+
+  <!-- ===== 13.7 連結性 ===== -->
+  <section id="s-conn" class="section">
+    <div class="section-header"><span class="section-number">13.7</span><h2>透過功能連結評估精神疲勞</h2></div>
+    <p>把腦看成『節點 + 邊』的圖：</p>
+    <ul>
+      <li><strong>節點</strong>：每個 EEG 電極對應的腦區。</li>
+      <li><strong>邊</strong>：用 coherence、phase lag index、PLV、Granger causality 等計算。</li>
+      <li>常用圖論指標：<strong>clustering coefficient（集群度）</strong>、<strong>path length（最短路徑長）</strong>、<strong>small-worldness</strong>、<strong>node degree</strong>。</li>
+    </ul>
+    <p>多項研究指出：fatigue 時整體腦網絡的小世界性下降、特定頻段（θ、α）的連結強度增加。</p>
+  </section>
+
+  <!-- ===== 13.8 深度學習 ===== -->
+  <section id="s-dl" class="section">
+    <div class="section-header"><span class="section-number">13.8</span><h2>深度學習方法</h2></div>
+    <ul>
+      <li><strong>PCANet</strong>：兩層 PCA-based 卷積 + binary hashing + 區塊直方圖；對 32×20 的多通道 EEG segment 抽特徵，配合 SVM/KNN <strong>達 ~95% 準確率</strong>（Wang et al.）。</li>
+      <li><strong>Recurrent Fuzzy NN (RFNN)</strong>：適合捕捉細微頻譜變化（Liu et al.）。</li>
+      <li><strong>Boosting + Transfer Learning</strong>：用過往資料 + 少量當前資料校準，解決跨日跨受試者的分布差異。</li>
+      <li><strong>DSTCLN (Deep Spatiotemporal CNN + Bi-LSTM)</strong>：Jeong et al. (2020) 從 32 通道 EEG 偵測 2 類心智狀態達 0.87，5 類 drowsiness 達 0.69 準確率。</li>
+    </ul>
+    <p>整體而言，深度學習能<strong>同時學特徵 + 分類</strong>，是 fatigue monitoring 的主流方向。</p>
+  </section>
+
+  <!-- ===== 摘要 ===== -->
+  <section id="s-summary" class="section">
+    <div class="section-header"><span class="section-number">13.9</span><h2>本章摘要</h2></div>
+    <ul>
+      <li>Mental fatigue 是『腦活動 + 注意力 + 認知效能』降低的狀態，不等於想睡。</li>
+      <li>單一頻段功率變化不大，但<strong>頻段比</strong>（如 (θ+α)/(α+β)、θ/β）對疲勞敏感。</li>
+      <li>ERP 元件 P300（特別是 P3b）的<strong>振幅↓、延遲↑</strong>是注意力下降的直接證據。</li>
+      <li>同步性（SCV、MI）、複雜度（LZC、ApEn、Kolmogorov entropy）、連結性等都是有效特徵。</li>
+      <li>分類器從 HMM、SVM、Random Forest 進展到 PCANet、Bi-LSTM 等深度方案，準確率最高可達 ~95%。</li>
+      <li>實務挑戰：跨受試者差異大、artefact 多、需線上校準 / transfer learning。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🚀 下一步</div>
+      第 14 章把焦點放在「情緒」 — 從 valence-arousal 平面到 SEED/DEAP 資料庫，再到跨受試者的 DL 模型。
+    </div>
+  </section>
+
+  <!-- ===== Quiz ===== -->
+  <section id="s-quiz">
+    <div id="quiz-host"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">本網頁內容依教學目的整理自 Sanei & Chambers (2022) 第 13 章。</div>
+</footer>
+
+<script src="../assets/js/api.js?v=1"></script>
+<script src="../assets/js/quiz-engine.js?v=1"></script>
+<script src="../assets/data/chapter13-questions.js?v=1"></script>
+<script src="../assets/js/chapter13.js?v=1"></script>
+</body>
+</html>

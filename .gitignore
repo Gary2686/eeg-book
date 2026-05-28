@@ -1,0 +1,15 @@
+# 內部抽取資料，不上傳
+_source/
+chapter1.txt
+
+# 開發暫存
+.claude/
+.DS_Store
+Thumbs.db
+*.swp
+*.log
+node_modules/
+.vscode/
+
+# 局部測試
+*.bak

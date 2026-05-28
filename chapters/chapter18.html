@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十八章 — EEG 與多模態腦造影 | EEG Signal Processing 互動教材</title>
+<meta name="description" content="EEG Signal Processing and Machine Learning, 2nd Edition — Chapter 18 Joint Analysis of EEG and Other Simultaneously Recorded Brain Functional Neuroimaging Modalities 互動式教學。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css?v=1">
+</head>
+<body>
+
+<!-- ===== 上方導覽 ===== -->
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html" class="site-logo">
+      <svg class="site-logo-icon" viewBox="0 0 32 32" fill="none">
+        <path d="M2 16 Q5 6 9 16 T16 16 T23 16 T30 16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+      </svg>
+      EEG 互動教材
+    </a>
+    <nav class="site-nav">
+      <a href="#s-overview">概覽</a>
+      <a href="#s-intro">18.1 引言</a>
+      <a href="#s-modalities">18.2 三大模態</a>
+      <a href="#s-eegfmri">18.3 EEG–fMRI</a>
+      <a href="#s-artefact">偽影去除</a>
+      <a href="#s-fusion">融合方法</a>
+      <a href="#s-eegnirs">18.4 EEG–NIRS</a>
+      <a href="#s-eegmeg">18.5 EEG–MEG</a>
+      <a href="#s-summary">18.6 摘要</a>
+      <a href="#s-quiz">📝 測驗</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== Hero 章節首屏 ===== -->
+<section class="chapter-hero">
+  <div class="chapter-hero-inner">
+    <span class="chapter-tag">CHAPTER 18</span>
+    <h1 class="chapter-title">Joint Analysis of EEG and Other Brain Imaging Modalities</h1>
+    <p class="chapter-subtitle">當 EEG 遇上 fMRI、MEG、fNIRS — 三大互補神經影像的整合</p>
+    <div class="chapter-objectives">
+      <h3>🎯 本章學習目標</h3>
+      <ul>
+        <li>了解為什麼要把 EEG 與其他造影模態同步記錄。</li>
+        <li>掌握 fMRI、fNIRS、MEG 的基本原理與資料特性。</li>
+        <li>了解 BOLD 訊號、HRF（血氧反應函數）的形狀與意義。</li>
+        <li>能說明 EEG 在 MR 環境下的兩大偽影：梯度偽影與 BCG 偽影。</li>
+        <li>掌握常見偽影去除方法：AAS、OBS、ICA、DHT、混合算法。</li>
+        <li>了解 EEG–fMRI 融合的三大策略：非對稱（一邊驅動另一邊）、對稱（聯合學習）、模型整合。</li>
+        <li>對 EEG + fNIRS / EEG + MEG 的應用情境有概念。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<main class="page">
+
+  <!-- ===== 概覽 ===== -->
+  <section id="s-overview" class="section">
+    <div class="section-header"><span class="section-number">OVERVIEW</span><h2>本章地圖</h2></div>
+    <p>EEG 給你「時間」，fMRI 給你「空間」，fNIRS 給你「便宜的血氧」，MEG 給你「不受顱骨干擾的磁場」。沒有任何單一模態能完整描述大腦，<strong>同步記錄 (simultaneous recording)</strong> 就是答案。但同步也帶來新麻煩 — MRI 的磁場會把 EEG 訊號攪爛 1000 倍。本章告訴你三件事：<u>有哪些模態</u>、<u>如何處理偽影</u>、<u>如何融合資訊</u>。</p>
+
+    <div class="callout key">
+      <div class="callout-title">🧭 你會在這章獲得</div>
+      <ul style="margin:6px 0;">
+        <li>一張可互動的「<strong>EEG vs fMRI vs MEG vs fNIRS 解析度比較</strong>」圖。</li>
+        <li>了解 BOLD、HbO/HbR 等血氧訊號與 EEG 的關係。</li>
+        <li>學會 Gradient artefact、BCG artefact 的本質與多種去除策略。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 18.1 引言 ===== -->
+  <section id="s-intro" class="section">
+    <div class="section-header"><span class="section-number">18.1</span><h2>引言 — 為什麼要同步多模態？</h2></div>
+    <p>EEG 的時間解析度極佳（毫秒），但<strong>空間解析度差</strong>、訊號被顱骨衰減 ~100×。研究者於是把 EEG 與其他模態一起錄：</p>
+    <ul>
+      <li><strong>EEG + fMRI</strong>：互補時間與空間（毫秒 + 毫米）。</li>
+      <li><strong>EEG + fNIRS</strong>：互補時間與中等空間，且 fNIRS 便宜、便攜。</li>
+      <li><strong>EEG + MEG</strong>：互補（兩者都是電磁性質、毫秒級），MEG 對顱骨不敏感。</li>
+    </ul>
+
+    <div class="interactive">
+      <div class="interactive-title">📊 四大模態的時間 / 空間解析度比較（互動）</div>
+      <p style="margin:8px 0;">點選下方按鈕，可以對焦看不同模態的解析度位置：</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <button class="btn" data-mod="all">全部顯示</button>
+        <button class="btn secondary" data-mod="eeg">EEG</button>
+        <button class="btn secondary" data-mod="meg">MEG</button>
+        <button class="btn secondary" data-mod="fmri">fMRI</button>
+        <button class="btn secondary" data-mod="fnirs">fNIRS</button>
+      </div>
+      <div class="svg-figure">
+        <svg id="modal-compare" viewBox="0 0 720 380" style="width:100%;max-width:840px;"></svg>
+      </div>
+      <div id="modal-desc" class="callout info" style="margin-top:10px;"></div>
+    </div>
+  </section>
+
+  <!-- ===== 18.2 三大模態 ===== -->
+  <section id="s-modalities" class="section">
+    <div class="section-header"><span class="section-number">18.2</span><h2>三大模態的基本概念</h2></div>
+
+    <h3>18.2.1 fMRI（功能性磁振造影）</h3>
+    <p>fMRI 利用大磁場（≥ 1.5 T）讓水分子裡的氫原子<u>核磁共振 (NMR)</u>，從訊號變化推出腦活動。它不是量神經元放電，而是量<strong>血氧</strong>（BOLD: Blood Oxygenation Level Dependence）：</p>
+    <ul>
+      <li>神經活動 ↑ → 局部代謝需求 ↑ → 血流 ↑（過度補償）→ <strong>含氧血紅蛋白 (HbO)</strong> 上升、<strong>缺氧血紅蛋白 (HbR)</strong> 下降。</li>
+      <li>HbR 是<u>順磁性</u>，磁敏感度高；HbO 是<u>反磁性</u>。所以 HbR 下降 → BOLD ↑（正向 BOLD 改變）。</li>
+    </ul>
+
+    <p><strong>HRF（血氧反應函數）</strong>：腦活動引起 BOLD 變化的「衝擊反應」，通常用兩個 gamma 函數的差來建模，峰值約在 5–6 秒：</p>
+    <p style="background:#f1f5f9;padding:10px 14px;border-radius:6px;font-family:'Courier New',monospace;">
+      s(n) = (n/k₁)^α₁ · e^(-(n-k₁)/β₁) − c·(n/k₂)^α₂ · e^(-(n-k₂)/β₂)
+    </p>
+
+    <p>實驗設計分兩種：<strong>block design</strong>（rest / active 交替，SNR 高）與 <strong>event-related design</strong>（隨機刺激，可捕捉時間細節）。資料常用格式：DICOM、ANALYZE、NIFTI。</p>
+
+    <h3>18.2.2 fNIRS（功能性近紅外光譜）</h3>
+    <p>fNIRS 用 <strong>700–1000 nm</strong> 近紅外光照頭皮 → 光穿過頭皮、顱骨到皮質 → 被 HbO/HbR 吸收 / 散射 → 偵測器接收。HbO 與 HbR 在不同波長的吸收係數不同，可以解出兩者濃度變化。</p>
+
+    <div class="callout info">
+      <div class="callout-title">📐 Modified Beer-Lambert Law</div>
+      <p style="margin:6px 0;font-family:'Courier New',monospace;">
+        φ(t, λ) = −ln[I(t,λ) / I₀(t,λ)] = d · DPF(λ) · Δμ_a(t, λ)
+      </p>
+      <p style="margin:6px 0;">d：光源-偵測器距離；DPF：differential path-length factor（修正散射效應）；Δμ_a：吸收係數變化。</p>
+    </div>
+
+    <ul>
+      <li>典型 16 通道系統，源-偵測器距離 2.5 cm，深度約 1.25 cm（只能看皮質表層）。</li>
+      <li>對 AD 患者：執行語言流暢度任務時，HbO 與 HbT 顯著下降（健康人是上升）。</li>
+      <li>PTSD：HbO 與 HbT 增幅小於無 PTSD 受試者。</li>
+    </ul>
+
+    <h3>18.2.3 MEG（腦磁圖）</h3>
+    <p>MEG 量神經元電活動產生的<strong>磁場</strong>，假設每個神經產生器都等價於一個<u>電流偶極</u>(equivalent current dipole, ECD)。磁場<u>不受顱骨扭曲</u>，空間解析度比 EEG 好。但 MEG 需要 SQUID 感測器、磁屏蔽室、冷凍系統，<strong>昂貴</strong>、<strong>不便攜</strong>。</p>
+  </section>
+
+  <!-- ===== 18.3 EEG-fMRI ===== -->
+  <section id="s-eegfmri" class="section">
+    <div class="section-header"><span class="section-number">18.3</span><h2>EEG–fMRI 同步：原理與融合策略</h2></div>
+
+    <h3>18.3.1 EEG 與 fMRI 的物理關聯</h3>
+    <p>EEG 是<strong>直接</strong>量突觸電流；fMRI BOLD 是<strong>間接</strong>反映神經活動的血氧變化。從神經放電到 BOLD 變化中間隔 ~ 3–6 秒。多數研究顯示兩者大致呈<u>線性耦合</u>，但實際關係仍有爭議。</p>
+
+    <div class="callout warning">
+      <div class="callout-title">⚠️ 時間尺度差很多</div>
+      EEG：毫秒級；fMRI：秒級。要做 EEG-fMRI 聯合分析，必須先處理「<strong>時間尺度錯位</strong>」 — 通常以 HRF 為橋樑。
+    </div>
+
+    <h3>18.3.2 GLM — 從 fMRI 找出激活區</h3>
+    <p>用<strong>線性模型 (GLM)</strong> 把每個 voxel 的時間序列當成「刺激 + HRF」的卷積響應：</p>
+    <p style="background:#f1f5f9;padding:10px 14px;border-radius:6px;font-family:'Courier New',monospace;">
+      x = Y · b + e
+    </p>
+    <p>x 為 voxel 時間序列；Y 為設計矩陣（含刺激與其 HRF）；b 為要估的權重；e 為雜訊。解 b = (YᵀY)⁻¹ Yᵀx，再做 t-test 找出顯著激活的 voxel。SPM、FSL 是兩大常用工具箱。</p>
+
+    <h3 id="s-artefact">18.3.3 兩大偽影：Gradient & BCG</h3>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>Gradient Artefact</h4>
+        <div class="cons">MRI 影像取得時的磁場梯度變化造成</div>
+        <div class="cons">振幅高達 EEG 的 100 倍</div>
+        <div class="pros">時間穩定 → 平均樣板可去除</div>
+        <div class="pros">主要方法：<strong>AAS</strong>（average artefact subtraction）</div>
+      </div>
+      <div class="compare-card">
+        <h4>BCG（彈道心動圖）Artefact</h4>
+        <div class="cons">磁場中電極隨心跳微動產生的訊號</div>
+        <div class="cons">振幅約 150 μV (1.5 T 時)，會遮蓋 α 頻段以下</div>
+        <div class="cons">形狀<u>會隨時間變動</u>，難用單一樣板</div>
+        <div class="pros">方法：AAS + 自適應、ICA、OBS、DHT、混合 ICA+DHT</div>
+      </div>
+    </div>
+
+    <h3>常見偽影去除流程</h3>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Gradient 去除</strong><small>用 slice timing trigger 對齊，計算平均樣板 → 從每個切片週期中減掉。</small></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><strong>BCG 偵測</strong><small>用 ECG 通道或從 EEG 自動偵測 R 波對齊。</small></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><strong>BCG 建模</strong><small>OBS（PCA 取前幾個主成分）、DHT（Hermite 函數展開）、ICA（盲源分離）。</small></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-body"><strong>BCG 移除</strong><small>把 BCG 模板 / IC 元件減掉、其餘投影回電極空間。</small></div></div>
+      <div class="step"><div class="step-num">5</div><div class="step-body"><strong>驗證</strong><small>檢查 α 頻段是否回復、是否仍殘留週期性尖峰。</small></div></div>
+    </div>
+
+    <h3 id="s-fusion">18.3.x EEG–fMRI 三大融合策略</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>EEG-driven fMRI（非對稱）</h4>
+        <div class="pros">用 EEG 特徵（如 ERP 振幅）構造 GLM regressor</div>
+        <div class="pros">適合事件相關研究</div>
+        <div class="cons">假設兩者線性耦合</div>
+      </div>
+      <div class="compare-card">
+        <h4>fMRI-driven EEG（非對稱）</h4>
+        <div class="pros">用 fMRI 找到激活區作為 EEG 來源約束</div>
+        <div class="pros">改善 EEG 反推源頭解問題的多義性</div>
+        <div class="cons">fMRI 時間分辨率低</div>
+      </div>
+      <div class="compare-card">
+        <h4>Symmetric Fusion（對稱）</h4>
+        <div class="pros">同時學兩種模態的潛在表徵（HOPLS、tensor decomposition）</div>
+        <div class="pros">能挖出單模態看不見的聯合模式</div>
+        <div class="cons">計算成本高、模型複雜</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 18.4 EEG-fNIRS ===== -->
+  <section id="s-eegnirs" class="section">
+    <div class="section-header"><span class="section-number">18.4</span><h2>EEG + fNIRS 同步</h2></div>
+    <p>因為兩者都是<u>非侵入、頭皮上</u> 的紀錄，又沒有電磁干擾，整合非常容易。常見應用：</p>
+    <ul>
+      <li><strong>癲癇</strong>：偵測 IED（發作間期癲癇放電）對應的 HR；fNIRS 蒙太奇可針對個別病人客製。</li>
+      <li><strong>BCI</strong>：在伸手抓握任務下，EEG 量 γ-ERS，fNIRS 量 HbO 變化，結合 GLM 分析。</li>
+      <li><strong>新生兒監測</strong>：偵測缺氧、出血、癲癇。</li>
+      <li><strong>精神疾病</strong>：BP、思覺失調、遊戲成癮、復健監測。</li>
+    </ul>
+
+    <div class="callout info">
+      <div class="callout-title">📐 BOLD-like 反應在 fNIRS 的特徵</div>
+      <p style="margin:6px 0;">任務啟動時 <strong>HbO 上升、HbR 下降</strong>，HbT (= HbO + HbR) 小幅上升。HbO/HbR 比約 3。這跟 fMRI 的 BOLD 機制一致，但 fNIRS 直接量血氧濃度，不是間接磁訊號。</p>
+    </div>
+  </section>
+
+  <!-- ===== 18.5 EEG-MEG ===== -->
+  <section id="s-eegmeg" class="section">
+    <div class="section-header"><span class="section-number">18.5</span><h2>EEG + MEG 融合</h2></div>
+    <p>EEG 與 MEG 都是電磁性質、毫秒級，似乎重複。但研究顯示：</p>
+    <ul>
+      <li>兩者在頻譜能量、功能與有效連結度 (PDC)、相對頻段比、空間解析度等指標<strong>大致一致</strong>。</li>
+      <li>合併兩者通常結果更穩，但<strong>有時 EEG 反而優於 EEG+MEG</strong>（因為 MEG 雜訊較高）。</li>
+      <li>對「相干性」這類指標，EEG 單獨就已經很好。</li>
+      <li>真正的優勢：MEG 對<u>深層源頭</u>與<u>導電率</u>的敏感度高，補充 EEG 的盲區。</li>
+    </ul>
+
+    <div class="callout tip">
+      <div class="callout-title">💡 為什麼 EEG + MEG 整合不普及？</div>
+      MEG 設備極貴、需冷凍 + 磁屏蔽室，使用門檻高；新興的<strong>光抽幫浦磁強計 (OPM)</strong> 可能讓 MEG 變便攜，未來會更普及。
+    </div>
+  </section>
+
+  <!-- ===== 18.6 Summary ===== -->
+  <section id="s-summary" class="section">
+    <div class="section-header"><span class="section-number">18.6</span><h2>本章摘要</h2></div>
+    <ul>
+      <li>單一模態都不夠完整：<strong>EEG 給時間、fMRI 給空間、fNIRS 給便宜的血氧、MEG 給乾淨的電磁</strong>。</li>
+      <li>BOLD 反映神經活動的血氧結果，HRF 約在 5–6 秒峰值，與 EEG 之間隔著一個慢的因果鏈。</li>
+      <li>EEG 在 MR 中有兩大偽影：<strong>Gradient（時間穩定，AAS 可解）</strong> 與 <strong>BCG（時變、複雜，需 OBS / ICA / DHT 等組合）</strong>。</li>
+      <li>EEG–fMRI 融合策略分三類：<u>EEG 驅動 fMRI</u>、<u>fMRI 驅動 EEG</u>、<u>對稱聯合學習</u>（如 HOPLS、tensor）。</li>
+      <li>EEG + fNIRS 是最易整合的多模態，應用最廣（BCI、新生兒、精神疾病）。</li>
+      <li>EEG + MEG 同步罕見且昂貴，OPM 是未來方向。</li>
+      <li>更新方向：PET、超寬頻微波等也開始與 EEG 結合。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🎉 全書終章</div>
+      第 18 章是本書的<strong>句點</strong>。從第 1 章的單通道 EEG 入門，一路走到神經退化、精神疾病、BCI、再到多模態整合 — 你已經獲得一張完整的「EEG 訊號處理 × 機器學習」地圖。
+    </div>
+  </section>
+
+  <!-- ===== Quiz ===== -->
+  <section id="s-quiz">
+    <div id="quiz-host"><!-- Quiz 引擎將掛載於此 --></div>
+  </section>
+
+</main>
+
+<!-- ===== 頁尾版權 ===== -->
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">本網頁內容依教學目的整理自 Sanei & Chambers (2022) 第 18 章。</div>
+</footer>
+
+<!-- ===== JS ===== -->
+<script src="../assets/js/api.js?v=1"></script>
+<script src="../assets/js/quiz-engine.js?v=1"></script>
+<script src="../assets/data/chapter18-questions.js?v=1"></script>
+<script src="../assets/js/chapter18.js?v=1"></script>
+</body>
+</html>

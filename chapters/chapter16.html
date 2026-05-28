@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十六章 — 精神與神經發育疾病的 EEG 生物標記 | EEG Signal Processing 互動教材</title>
+<meta name="description" content="EEG Signal Processing and Machine Learning, 2nd Edition — Chapter 16 EEG As A Biomarker for Psychiatric and Neurodevelopmental Disorders 互動式教學。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css?v=1">
+</head>
+<body>
+
+<!-- ===== 上方導覽 ===== -->
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html" class="site-logo">
+      <svg class="site-logo-icon" viewBox="0 0 32 32" fill="none">
+        <path d="M2 16 Q5 6 9 16 T16 16 T23 16 T30 16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+      </svg>
+      EEG 互動教材
+    </a>
+    <nav class="site-nav">
+      <a href="#s-overview">概覽</a>
+      <a href="#s-intro">16.1 引言</a>
+      <a href="#s-adhd">16.2.1 ADHD</a>
+      <a href="#s-asd">16.2.2 ASD</a>
+      <a href="#s-mood">16.2.3 憂鬱/躁鬱</a>
+      <a href="#s-scz">16.2.4 思覺失調</a>
+      <a href="#s-anx">16.2.5 焦慮</a>
+      <a href="#s-insom">16.2.6 失眠</a>
+      <a href="#s-scztype">16.2.7 分裂型</a>
+      <a href="#s-summary">16.3 摘要</a>
+      <a href="#s-quiz">📝 測驗</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== Hero 章節首屏 ===== -->
+<section class="chapter-hero">
+  <div class="chapter-hero-inner">
+    <span class="chapter-tag">CHAPTER 16</span>
+    <h1 class="chapter-title">EEG As A Biomarker for Psychiatric and Neurodevelopmental Disorders</h1>
+    <p class="chapter-subtitle">用腦電圖看「心智」 — 從 ADHD、自閉症到憂鬱與思覺失調</p>
+    <div class="chapter-objectives">
+      <h3>🎯 本章學習目標</h3>
+      <ul>
+        <li>了解神經發育疾病 (NDDs) 的定義，及為何 EEG 是補充性生物標記。</li>
+        <li>掌握 ADHD 的核心 EEG 指標 (θ/β ratio) 及其限制。</li>
+        <li>了解自閉症 (ASD) 的腦連結度模式：本地過連結 + 遠距欠連結。</li>
+        <li>說明憂鬱症的常見 EEG 變化（複雜度、ERP、α 頻段不對稱）。</li>
+        <li>分辨憂鬱、躁鬱、思覺失調之間的 EEG 重疊與差異。</li>
+        <li>了解焦慮症的 γ 上升 / 額葉不對稱性。</li>
+        <li>初步認識複雜度測量（HFD、SampEn、LZC、FuzzyEn）在精神疾病的應用。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<main class="page">
+
+  <!-- ===== 概覽 ===== -->
+  <section id="s-overview" class="section">
+    <div class="section-header"><span class="section-number">OVERVIEW</span><h2>本章地圖</h2></div>
+    <p>精神疾病 / 神經發育疾病 (NDDs) 的<strong>診斷邊界很模糊</strong> — 例如 ASD 跟思覺失調都有社交障礙，bipolar 跟憂鬱症狀重疊。EEG 因為便宜、可重複、可量化，逐漸成為各種 NDDs 的<strong>輔助生物標記</strong>。本章把每一個常見疾病各自的 EEG 特徵整理出來，並提供一個<strong>可切換的互動圖</strong>，讓你一眼看清各疾病在 EEG 上的相對位置。</p>
+
+    <div class="callout key">
+      <div class="callout-title">🧭 你會在這章獲得</div>
+      <ul style="margin:6px 0;">
+        <li>一張「<strong>精神疾病 vs EEG 特徵</strong>」對照圖，可以互動切換。</li>
+        <li>每個疾病的 1–3 個關鍵 EEG 指標 + 對應典型研究方法。</li>
+        <li>了解 <strong>θ/β ratio、α 不對稱、複雜度</strong> 等指標的意義與適用情境。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 16.1 引言 ===== -->
+  <section id="s-intro" class="section">
+    <div class="section-header"><span class="section-number">16.1</span><h2>引言 — 心智疾病也能被「量到」嗎？</h2></div>
+    <p>古希臘的 <strong>Hippocrates</strong>（460–370 BC）就試圖把精神疾病從巫術中剝離，他把它分為癲癇、躁狂、憂鬱、腦熱四類。今天我們有更完整的 <strong>DSM-5</strong>（2013 年版）分類，包括 ADHD、ASD、憂鬱、躁鬱、思覺失調、焦慮、強迫、失眠等。</p>
+
+    <h3>三大理論</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>Supernatural 超自然</h4>
+        <div class="cons">早期：歸因鬼神、罪、星辰</div>
+        <div class="cons">無科學基礎</div>
+      </div>
+      <div class="compare-card">
+        <h4>Somatogenic 體因論</h4>
+        <div class="pros">疾病、遺傳、腦結構失衡</div>
+        <div class="pros">今日精神醫學主流</div>
+      </div>
+      <div class="compare-card">
+        <h4>Psychogenic 心因論</h4>
+        <div class="pros">創傷、認知扭曲</div>
+        <div class="pros">心理治療的基礎</div>
+      </div>
+    </div>
+
+    <h3>為什麼診斷邊界這麼模糊？</h3>
+    <ul>
+      <li><strong>社交認知缺損</strong>：ASD 與思覺失調都有。</li>
+      <li><strong>精神病性症狀</strong>：思覺失調、躁鬱、重鬱都可能出現。</li>
+      <li>因此單一 EEG 特徵幾乎不可能<strong>獨立</strong>確診，但<u>多模態</u>（EEG + 行為 + 病史 + 影像）可以。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 16.2.1 ADHD ===== -->
+  <section id="s-adhd" class="section">
+    <div class="section-header"><span class="section-number">16.2.1</span><h2>ADHD（注意力不足過動）</h2></div>
+    <p>ADHD 是<strong>最常見</strong>的兒童精神疾病（兒童 8.4%、成人 2.5%），男孩高於女孩。1938 年 Jasper 等人就觀察到 ADHD 兒童<strong>額中央區的 EEG 節律變慢</strong>，揭開了 EEG 在 ADHD 的研究序幕。</p>
+
+    <h3>三種臨床亞型</h3>
+    <ul>
+      <li><strong>注意力不足型</strong>（容易分心、組織困難）</li>
+      <li><strong>過動衝動型</strong>（坐不住、貿然行動）</li>
+      <li><strong>混合型</strong></li>
+    </ul>
+
+    <h3>最知名的 EEG 指標 — θ/β ratio</h3>
+    <div class="callout key">
+      <div class="callout-title">📌 θ/β 比值</div>
+      <p style="margin:6px 0;"><strong>ADHD 兒童在 Cz 電極的 θ 波 (4–8 Hz) 變強，β 波 (14–30 Hz) 變弱。</strong>因此 <u>θ/β 比值</u>（約 0.6 ~ 3.0）成為最廣為使用的指標，2016 年美國神經醫學會曾把它列為標準方法。</p>
+    </div>
+
+    <div class="callout warning">
+      <div class="callout-title">⚠️ 然而 — Nuwer 等人提出的反駁</div>
+      θ/β 比值有<strong>強烈的年齡效應</strong>：兒童期高、進入成人期會自然下降。所以在<u>成人 ADHD</u> 它幾乎沒鑑別力，必須有「年齡校正基準線」才能用。Kiiski 等用 elastic net 在整段 EEG 譜上分析，發現比 θ/β 更佳的多變量特徵組合。</p>
+    </div>
+
+    <h3>ERP 特徵</h3>
+    <ul>
+      <li>注意力與抑制：P200、P300、N200 振幅下降</li>
+      <li>錯誤偵測：<strong>ERN</strong> 與 <strong>Pe</strong> 振幅下降 — 顯示自動錯誤偵測受損</li>
+      <li>反饋處理：<strong>FRN</strong> 受影響</li>
+      <li>成人 ADHD：γ 頻段活動下降，特別是右側中頂部</li>
+    </ul>
+
+    <h3>多變量機器學習</h3>
+    <p>研究者改用<strong>分形維度 (Higuchi / Petrosian / Katz)</strong>、自迴歸係數、wavelet 係數 + 多種分類器組合，使診斷穩定度提升；但臨床解釋變難。</p>
+  </section>
+
+  <!-- ===== 16.2.2 ASD ===== -->
+  <section id="s-asd" class="section">
+    <div class="section-header"><span class="section-number">16.2.2</span><h2>ASD（自閉症類群障礙）</h2></div>
+    <p>ASD 是<strong>多基因發育性疾病</strong>，特徵是<u>非典型的社交與重複行為模式</u>。常被視為「<strong>動態系統</strong>」 — 皮質興奮性與連結度異常導致行為表現。</p>
+
+    <h3>核心 EEG 觀察 — 連結度模式</h3>
+    <div class="callout info">
+      <div class="callout-title">🧩 「短連結 ↑ + 長連結 ↓」</div>
+      <p style="margin:6px 0;">早期腦過度發育 (brain overgrowth) 導致局部 (<strong>cortico-cortical 短距離</strong>) 連結增強，但跨半球與皮質-皮質下的<strong>長距離連結減弱</strong>。這正是 ASD 行為（執著於細節、社交統合困難）的可能神經基礎。</p>
+    </div>
+
+    <h3>常用方法</h3>
+    <ol>
+      <li><strong>同步狀態 (synchrostates)</strong>：用 128 通道在情緒臉孔感知任務下觀察 γ 頻段的相位同步。</li>
+      <li><strong>非線性複雜度</strong>：sample entropy、recurrence rate、Lyapunov 指數、laminarity 等多種指標 + SVM。</li>
+      <li><strong>高階譜 (HOS / bispectrum)</strong>：把訊號轉成 2D 圖像，用 LSDA 維度縮減 + PNN 分類 — 只用 5 個特徵就達到優異表現。</li>
+      <li><strong>逐步式 (stepwise)</strong>：先用量化 EEG → 不確定者改用 ERP → 仍不確定改用睡眠 EEG (PSG)，逐步逼近診斷。</li>
+    </ol>
+
+    <div class="callout story">
+      <div class="callout-title">📖 為什麼癲癇與 ASD 常一起被研究？</div>
+      <p style="margin:6px 0;">兩者共享部分生物路徑：基因轉錄調節、細胞生長、突觸通道功能。兒童的 ASD 與癲癇在波形上有相似處，必須小心鑑別。</p>
+    </div>
+  </section>
+
+  <!-- ===== 16.2.3 Mood Disorders ===== -->
+  <section id="s-mood" class="section">
+    <div class="section-header"><span class="section-number">16.2.3</span><h2>情緒障礙 — 憂鬱與躁鬱</h2></div>
+
+    <h3>主要的情緒障礙類型</h3>
+    <ul>
+      <li><strong>Major Depression（重鬱症）</strong>：至少兩週的情緒低落或興趣減退。</li>
+      <li><strong>Dysthymia</strong>：持續 ≥ 2 年的輕度憂鬱。</li>
+      <li><strong>Bipolar Disorder 躁鬱症</strong>：憂鬱與躁狂交替。</li>
+      <li>物質誘發 / 健康狀況伴隨的情緒障礙。</li>
+    </ul>
+
+    <h3>16.2.3.1 憂鬱症的 EEG</h3>
+    <ul>
+      <li><strong>複雜度 ↑</strong>：HFD（Higuchi 分形維度）、Sample Entropy 都比健康人高（FP1 與其他額葉電極特別明顯）。</li>
+      <li><strong>α 頻段不對稱</strong>：左右額葉 α 不對稱長期被視為憂鬱的特徵；後頂部 α 與頂部 μ 振幅下降。</li>
+      <li><strong>ERP</strong>：在 Stroop 一致/不一致任務中，<strong>P300 與 N450 振幅下降</strong>；反應時間 (RT) 約增加 40 ms。</li>
+      <li><strong>rTMS 治療監測</strong>：重複 TMS 治療後，憂鬱症的 HFD 在全頻段下降；躁鬱反應者則 δ、θ 上升 — 同一個指標反方向，可區分兩種疾病。</li>
+    </ul>
+
+    <h3>16.2.3.2 躁鬱症的 EEG</h3>
+    <ul>
+      <li>跟思覺失調有重疊（都會精神病性症狀）。用 <strong>16 Hz 光刺激</strong> 引起 SSVEP，再以統計量（均值、偏度、峰度）區分。</li>
+      <li>BP 與健康相比：α 頻段半球內的 coherence 都上升；BP <u>專屬</u>特徵是<strong>高頻能量上升</strong>，思覺失調則是<strong>低頻連結度跨半球上升</strong>。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 16.2.4 Schizophrenia ===== -->
+  <section id="s-scz" class="section">
+    <div class="section-header"><span class="section-number">16.2.4</span><h2>思覺失調 (Schizophrenia)</h2></div>
+    <p>盛行率約 <strong>&lt; 0.8%</strong>，男女差異不大但男性可能發病較早。症狀分三大類：</p>
+    <ul>
+      <li><strong>正性 (positive)</strong>：幻覺、妄想、誇大或扭曲的感知。</li>
+      <li><strong>負性 (negative)</strong>：意志減退、情感平板、言語減少。</li>
+      <li><strong>失序 (disorganized)</strong>：思考、言語、行為混亂。</li>
+    </ul>
+
+    <h3>EEG 特徵</h3>
+    <ul>
+      <li><strong>δ 增加</strong>（瀰漫於整個皮質，前扣帶與顳葉最明顯）。</li>
+      <li><strong>δ/α 活動</strong>：跨精神病譜的指標，反映丘腦-皮質機制。</li>
+      <li><strong>γ 上升</strong>（高密度 EEG 研究）：與症狀嚴重度正相關，被解釋為神經元活動<u>時間協調缺陷</u>。</li>
+      <li><strong>ERP</strong>：MMN（不匹配負波）與 P3a 振幅<u>顯著下降</u>，最顯著於背側中扣帶。</li>
+      <li><strong>複雜度</strong>：LZC（Lempel-Ziv complexity）在<u>靜息態升高、執行任務時下降</u>，與健康者剛好相反。FuzzyEn 也得到類似結論。</li>
+    </ul>
+
+    <div class="interactive">
+      <div class="interactive-title">🧪 互動切換：八種精神 / 發育疾病的 EEG 指紋</div>
+      <p style="margin:8px 0;">點選下方按鈕，會把該疾病的關鍵 EEG 特徵投影到頻段 / 連結度 / 複雜度 / ERP 四個向度上：</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <button class="btn" data-dis="adhd">ADHD</button>
+        <button class="btn secondary" data-dis="asd">ASD</button>
+        <button class="btn secondary" data-dis="depression">憂鬱</button>
+        <button class="btn secondary" data-dis="bipolar">躁鬱</button>
+        <button class="btn secondary" data-dis="scz">思覺失調</button>
+        <button class="btn secondary" data-dis="anxiety">焦慮</button>
+        <button class="btn secondary" data-dis="insomnia">失眠</button>
+        <button class="btn secondary" data-dis="scztype">分裂型</button>
+      </div>
+      <div class="svg-figure" style="padding:8px;">
+        <svg id="disorder-radar" viewBox="0 0 680 320" style="width:100%;max-width:780px;"></svg>
+      </div>
+      <div id="disorder-desc" class="callout info" style="margin-top:10px;"></div>
+    </div>
+  </section>
+
+  <!-- ===== 16.2.5 Anxiety ===== -->
+  <section id="s-anx" class="section">
+    <div class="section-header"><span class="section-number">16.2.5</span><h2>焦慮症 (Anxiety Disorders)</h2></div>
+    <p>焦慮是<strong>最常見</strong>的精神疾病（成人終生盛行率近 30%）。包括分離焦慮、社交焦慮、恐慌、廣場恐懼、廣泛性焦慮 (GAD)、PTSD 等。</p>
+
+    <h3>關鍵 EEG 指標</h3>
+    <ul>
+      <li><strong>γ 頻段</strong>：擔憂 (worry) 時顯著高於基線與放鬆狀態；治療後幾乎恢復正常。</li>
+      <li><strong>α 不對稱</strong>：左右額葉 / 中央 / 枕區的 α 不對稱（F3-F4, F7-F8, C3-C4, O1-O2）會在壓力下變化。</li>
+      <li><strong>θ 與 β 在右腦較強</strong>，β-α 差異上升，反映壓力與認知控制下降。</li>
+      <li><strong>多模態</strong>：EEG + 眼動，用 group sparse CCA (GSCCA) 結合特徵，在高頻段 (β、γ) 達 ≥ 80% 準確度。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 16.2.6 Insomnia ===== -->
+  <section id="s-insom" class="section">
+    <div class="section-header"><span class="section-number">16.2.6</span><h2>失眠 (Insomnia)</h2></div>
+    <p>失眠是<u>唯一</u>直接影響睡眠的精神疾病。分急性與慢性（≥ 3 個月、每週 ≥ 3 晚）。EEG 在失眠的應用通常結合 <strong>多導睡眠圖 (PSG)</strong> 與 <strong>活動量計 (actigraphy)</strong>。</p>
+
+    <h3>方法</h3>
+    <ul>
+      <li><strong>階段獨立 (stage-independent)</strong>：直接拿整段睡眠 EEG 來分類。</li>
+      <li><strong>階段依賴 (stage-dependent)</strong>：先做睡眠分期 → 取失眠特別異常的階段 → 二次分類（DNN）。</li>
+      <li>常用特徵：均值、變異、Hjorth 參數、5 個傳統頻段能量、零交越率、RMS、peak-to-peak 振幅等。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 16.2.7 Schizotypal ===== -->
+  <section id="s-scztype" class="section">
+    <div class="section-header"><span class="section-number">16.2.7</span><h2>分裂型人格障礙 (Schizotypal Personality)</h2></div>
+    <p>分裂型 (Schizotypy) 介於正常與思覺失調之間，<strong>非精神病性但易發展為思覺失調</strong>。特徵包括：</p>
+    <ul>
+      <li>「魔法思考」(magical thinking)：相信心電感應、預兆。</li>
+      <li>感知怪異：在黑暗中『看見』顏色與形狀。</li>
+      <li>社交孤立、社交焦慮，喜歡獨處勝過群體。</li>
+    </ul>
+
+    <h3>EEG 觀察（用 LORETA）</h3>
+    <ul>
+      <li>思覺失調：<strong>整個皮質 δ 顯著上升</strong>，前扣帶與顳葉融合迴最強。</li>
+      <li>分裂型 / 憂鬱：前扣帶的 δ、θ、β 都<u>下降</u>；右顳 α1、左顳 α2 也下降。</li>
+      <li>整體呈現「<strong>頻率相關的空間 hyperactivation 模式</strong>」。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 16.3 Summary ===== -->
+  <section id="s-summary" class="section">
+    <div class="section-header"><span class="section-number">16.3</span><h2>本章摘要</h2></div>
+    <ul>
+      <li>精神疾病是最具挑戰性的 EEG 分析領域之一 — 因為診斷邊界模糊、症狀重疊。</li>
+      <li><strong>ADHD</strong>：θ/β ratio 在兒童有用、成人需用多變量；ERN、Pe、γ 等也有改變。</li>
+      <li><strong>ASD</strong>：本地連結 ↑、長距連結 ↓；用非線性複雜度與高階譜效果好。</li>
+      <li><strong>憂鬱</strong>：複雜度 (HFD、SampEn) ↑、ERP P300/N450 ↓、額葉 α 不對稱、rTMS 後 HFD ↓。</li>
+      <li><strong>躁鬱</strong>：高頻能量 ↑，與思覺失調的<u>低頻跨半球連結 ↑</u> 形成對比。</li>
+      <li><strong>思覺失調</strong>：δ ↑、γ ↑、MMN/P3a ↓、LZC 在靜息態與健康者相反。</li>
+      <li><strong>焦慮</strong>：γ ↑、額葉 α 不對稱、EEG + 眼動多模態可達 80%+ 準確度。</li>
+      <li><strong>失眠</strong>：階段依賴分類 + DNN 是當前主流方向。</li>
+      <li><strong>分裂型</strong>：研究尚少，LORETA 顯示前扣帶與顳葉的特異模式。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🚀 下一章預告</div>
+      第 17 章會進入<strong>腦機介面 (BCI)</strong> — 把 EEG 轉成電腦指令 / 控制機械手。這是 EEG 訊號處理「最酷」的應用領域。
+    </div>
+  </section>
+
+  <!-- ===== Quiz ===== -->
+  <section id="s-quiz">
+    <div id="quiz-host"><!-- Quiz 引擎將掛載於此 --></div>
+  </section>
+
+</main>
+
+<!-- ===== 頁尾版權 ===== -->
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">本網頁內容依教學目的整理自 Sanei & Chambers (2022) 第 16 章。</div>
+</footer>
+
+<!-- ===== JS ===== -->
+<script src="../assets/js/api.js?v=1"></script>
+<script src="../assets/js/quiz-engine.js?v=1"></script>
+<script src="../assets/data/chapter16-questions.js?v=1"></script>
+<script src="../assets/js/chapter16.js?v=1"></script>
+</body>
+</html>

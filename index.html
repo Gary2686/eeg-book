@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EEG Signal Processing 互動式教材 — 課程首頁</title>
+<meta name="description" content="依 Sanei & Chambers (2022) 第二版設計的線上互動課程教材。">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/main.css?v=1">
+<style>
+  .home-hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0891b2 100%);
+    color: white;
+    padding: 80px 24px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .home-hero::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(255,255,255,0.08) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(255,255,255,0.08) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .home-hero h1 { font-size: 44px; margin: 0 0 12px; position: relative; }
+  .home-hero p { font-size: 17px; opacity: 0.92; max-width: 720px; margin: 0 auto; position: relative; }
+  .home-hero .author { margin-top: 14px; font-size: 14px; opacity: 0.78; }
+  .home-hero .badges { margin-top: 18px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .home-hero .badge {
+    background: rgba(255,255,255,0.12); padding: 4px 12px;
+    border-radius: 999px; font-size: 12px; backdrop-filter: blur(6px);
+  }
+  .chapters {
+    max-width: 1180px;
+    margin: -40px auto 60px;
+    padding: 0 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .chapter-card {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--color-border);
+    transition: all 0.2s ease;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    position: relative;
+  }
+  .chapter-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--color-primary); }
+  .chapter-card .num {
+    font-size: 11px; font-weight: 700; color: var(--color-primary);
+    letter-spacing: 1.4px;
+  }
+  .chapter-card h3 { margin: 6px 0 6px; font-size: 17px; line-height: 1.3; }
+  .chapter-card p { margin: 0; font-size: 13.5px; color: var(--color-text-muted); }
+  .chapter-card .status {
+    display: inline-block; margin-top: 12px;
+    padding: 2px 10px; font-size: 11px; border-radius: 999px;
+  }
+  .status.ready { background: #dcfce7; color: #166534; }
+  .section-divider {
+    max-width: 1100px; margin: 60px auto 12px; padding: 0 24px;
+    font-size: 13px; letter-spacing: 2px; color: var(--color-text-light);
+    text-transform: uppercase; font-weight: 700;
+  }
+  .intro-block {
+    max-width: 900px; margin: 40px auto; padding: 0 24px;
+  }
+  .intro-block .callout { background: white; box-shadow: var(--shadow-sm); }
+</style>
+</head>
+<body>
+
+<section class="home-hero">
+  <h1>EEG Signal Processing &amp; Machine Learning</h1>
+  <p>依 Sanei &amp; Chambers (2022) 第二版設計的互動式線上課程。18 章理論完整、互動圖示、隨堂測驗，提供完整學習路徑。</p>
+  <div class="badges">
+    <span class="badge">⚡ 互動式 SVG 動畫</span>
+    <span class="badge">📊 隨機抽題測驗</span>
+    <span class="badge">📚 18 章完整內容</span>
+    <span class="badge">📱 響應式版面</span>
+  </div>
+  <div class="author">授課與設計：葉欲禾 (Gary Yu-Ho YEH)</div>
+</section>
+
+<div class="section-divider">PART I · 基礎</div>
+<main class="chapters">
+  <a class="chapter-card" href="chapters/chapter01.html">
+    <div class="num">CHAPTER 01</div>
+    <h3>腦電圖入門 Introduction to EEG</h3>
+    <p>歷史沿革、神經元結構、動作電位、EEG 產生機制、腦網絡概念。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter02.html">
+    <div class="num">CHAPTER 02</div>
+    <h3>EEG 波形 EEG Waveforms</h3>
+    <p>α/β/θ/δ/γ 五大腦節律、10-20 電極系統、睡眠/疲勞/情緒/腦病。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter03.html">
+    <div class="num">CHAPTER 03</div>
+    <h3>EEG 訊號建模 Signal Modelling</h3>
+    <p>Hodgkin-Huxley、Morris-Lecar、線性/非線性、GMM、電子模型。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter04.html">
+    <div class="num">CHAPTER 04</div>
+    <h3>訊號處理基礎 Fundamentals</h3>
+    <p>非線性、非平穩、分段、Wavelet、EMD、Coherency、PCA。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter05.html">
+    <div class="num">CHAPTER 05</div>
+    <h3>訊號分解 Signal Decomposition</h3>
+    <p>SSA、ICA、BSS、稀疏分量、Tensor 分解、共通成分分析。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter06.html">
+    <div class="num">CHAPTER 06</div>
+    <h3>混沌與動態分析 Chaos &amp; Dynamics</h3>
+    <p>熵、Lyapunov 指數、碎形維度、DFA、遞迴量化分析。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+</main>
+
+<div class="section-divider">PART II · 進階分析</div>
+<main class="chapters">
+  <a class="chapter-card" href="chapters/chapter07.html">
+    <div class="num">CHAPTER 07</div>
+    <h3>機器學習 Machine Learning</h3>
+    <p>Bayesian、SVM、神經網路、深度學習、遷移與強化、CSP。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter08.html">
+    <div class="num">CHAPTER 08</div>
+    <h3>腦連結 Brain Connectivity</h3>
+    <p>功能/有效連結、Coherence、Granger、PDC、圖論。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter09.html">
+    <div class="num">CHAPTER 09</div>
+    <h3>事件相關電位 ERP</h3>
+    <p>P300、N100/N400、MMN、SSVEP/SSAEP、單試驗 ERP。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter10.html">
+    <div class="num">CHAPTER 10</div>
+    <h3>腦源定位 Source Localization</h3>
+    <p>正逆問題、Dipole、MUSIC、MNE/LORETA、Beamforming。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+</main>
+
+<div class="section-divider">PART III · 臨床與應用</div>
+<main class="chapters">
+  <a class="chapter-card" href="chapters/chapter11.html">
+    <div class="num">CHAPTER 11</div>
+    <h3>癲癇 Epileptic Seizure</h3>
+    <p>類型、Ictal/Pre-/Post-ictal、偵測、預測、源定位、手術規劃。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter12.html">
+    <div class="num">CHAPTER 12</div>
+    <h3>睡眠 Sleep Recognition</h3>
+    <p>W/N1-N3/REM 分期、紡錘波、K-複合波、自動評分、睡眠障礙。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter13.html">
+    <div class="num">CHAPTER 13</div>
+    <h3>精神疲勞 Mental Fatigue</h3>
+    <p>疲勞 vs 困倦、θ/α 指標、駕駛/飛行員偵測、ML 應用。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter14.html">
+    <div class="num">CHAPTER 14</div>
+    <h3>情緒辨識 Emotion Recognition</h3>
+    <p>Valence-Arousal 模型、PSD/不對稱性、DEAP/SEED 資料集、ML。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter15.html">
+    <div class="num">CHAPTER 15</div>
+    <h3>神經退化 Neurodegenerative</h3>
+    <p>Alzheimer、MCI、Parkinson、Huntington、Lewy body、早期診斷。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter16.html">
+    <div class="num">CHAPTER 16</div>
+    <h3>精神疾病 Psychiatric</h3>
+    <p>思覺失調、憂鬱、焦慮、雙極、ADHD、自閉症的 EEG 生物標記。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter17.html">
+    <div class="num">CHAPTER 17</div>
+    <h3>BCI 腦機介面</h3>
+    <p>P300、SSVEP、動作想像、CSP、LDA/SVM/DL、神經復健。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+  <a class="chapter-card" href="chapters/chapter18.html">
+    <div class="num">CHAPTER 18</div>
+    <h3>多模態整合 Joint Analysis</h3>
+    <p>EEG+fMRI、EEG+MEG、EEG+fNIRS 同時錄製與融合方法。</p>
+    <span class="status ready">✓ 上線</span>
+  </a>
+</main>
+
+<div class="intro-block">
+  <div class="callout key">
+    <div class="callout-title">📖 課程使用建議</div>
+    <ul style="margin:6px 0;">
+      <li>建議依序閱讀 Ch1 → Ch4，先建立 EEG 與訊號處理的基本觀念。</li>
+      <li>進階分析（Ch5-Ch10）可依研究主題挑選，例如做 BCI 重點看 Ch7/Ch10/Ch17。</li>
+      <li>每章結尾的隨機 10 題練習，建議多刷幾次（每次題目順序與選項都會變）。</li>
+      <li>互動圖示通常含播放、滑桿、點擊；多嘗試以加深理解。</li>
+    </ul>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">內容整理自 Sanei &amp; Chambers (2022) 並翻譯改寫為中文教材。僅供教學使用。</div>
+</footer>
+
+</body>
+</html>

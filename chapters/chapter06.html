@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第六章 — 混沌與動力分析 | EEG Signal Processing 互動教材</title>
+<meta name="description" content="EEG Signal Processing and Machine Learning, 2nd Edition — Chapter 6 Chaos and Dynamical Analysis 互動式教學。內容涵蓋熵、Lyapunov 指數、相關維度、碎形、DFA、RQA、HOS。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css?v=1">
+</head>
+<body>
+
+<!-- ===== 導覽 ===== -->
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html" class="site-logo">
+      <svg class="site-logo-icon" viewBox="0 0 32 32" fill="none">
+        <path d="M2 16 Q5 6 9 16 T16 16 T23 16 T30 16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+      </svg>
+      EEG 互動教材
+    </a>
+    <nav class="site-nav">
+      <a href="#s-overview">概覽</a>
+      <a href="#s-intro">6.1 引言</a>
+      <a href="#s-entropy">6.2~6.4 熵</a>
+      <a href="#s-lyapunov">6.5~6.7 Lyapunov</a>
+      <a href="#s-dim">維度與 DFA</a>
+      <a href="#s-rqa">RQA</a>
+      <a href="#s-hos">HOS / Bispectrum</a>
+      <a href="#s-apen">ApEn</a>
+      <a href="#s-summary">摘要</a>
+      <a href="#s-quiz">📝 測驗</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== Hero ===== -->
+<section class="chapter-hero">
+  <div class="chapter-hero-inner">
+    <span class="chapter-tag">CHAPTER 06</span>
+    <h1 class="chapter-title">Chaos and Dynamical Analysis</h1>
+    <p class="chapter-subtitle">當訊號像雜訊卻又不是雜訊 — 用混沌與動力學工具捕捉腦的『深層規律』</p>
+    <div class="chapter-objectives">
+      <h3>🎯 本章學習目標</h3>
+      <ul>
+        <li>理解『混沌』不是純隨機 — 是『確定性規則卻看似隨機』，與雜訊有本質差異。</li>
+        <li>掌握熵 (Entropy)、Kolmogorov 熵、多尺度離散熵 (MFDE)、近似熵 (ApEn) 的意義與差別。</li>
+        <li>能說明 Lyapunov 指數的物理意義與如何從時間序列估出。</li>
+        <li>掌握吸引子的概念，能畫出相空間，理解時間延遲 τ 與嵌入維度 m 的選擇。</li>
+        <li>了解碎形維度 D_f、相關維度 D_r、Lyapunov 維度 D_L 之間的關係。</li>
+        <li>能舉例說明 DFA、RQA、Bispectrum 在 EEG 的應用情境。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<main class="page">
+
+  <!-- 概覽 -->
+  <section id="s-overview" class="section">
+    <div class="section-header"><span class="section-number">OVERVIEW</span><h2>本章地圖</h2></div>
+    <p>EEG 訊號表面像雜訊，但其下藏著大量結構。<strong>混沌 (chaos) 與動力學分析</strong>提供一組工具，可在<u>沒有明確系統模型</u>的情況下，從訊號本身估出系統的『複雜度指紋』。</p>
+    <div class="callout key">
+      <div class="callout-title">🧭 核心觀念地圖</div>
+      <ul style="margin:0;">
+        <li><strong>熵類</strong>：Entropy → Kolmogorov → Multiscale Fluctuation Dispersion Entropy → Approximate Entropy</li>
+        <li><strong>幾何類</strong>：相空間吸引子 → Fractal / Correlation / Lyapunov dimension</li>
+        <li><strong>動力類</strong>：Lyapunov exponent（看軌跡是否發散）</li>
+        <li><strong>跨尺度類</strong>：DFA（去趨勢，估冪律 scaling exponent）</li>
+        <li><strong>圖形類</strong>：Recurrence Plot / RQA（系統何時回到過去狀態）</li>
+        <li><strong>頻譜類</strong>：Higher-Order Statistics、Bispectrum（看相位耦合）</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 6.1 引言 -->
+  <section id="s-intro" class="section">
+    <div class="section-header"><span class="section-number">6.1</span><h2>引言 — 大腦是動態系統</h2></div>
+    <p>許多生理現象都可以從『動態系統』的角度看：</p>
+    <ul>
+      <li><strong>睡眠四階段</strong>：訊號趨勢顯著改變，每階段的 EEG 像不同混沌系統。</li>
+      <li><strong>癲癇發作</strong>：發作前周邊神經元的訊號『由混沌漸轉有序』，是發作預測的物理基礎。</li>
+      <li><strong>運動意念</strong>：意圖移動時，α 節律會 desynchronize；動作開始時 β 節律則 synchronize。</li>
+    </ul>
+    <p>混沌數學早於 1890 年代就由 Kolmogorov、Poincaré 等人開啟。1960 年代 Smale 嘗試分類所有典型動態行為；Lorenz、Rössler 系統則展示了『簡單規則 → 複雜行為』的本質。</p>
+
+    <div class="callout info">
+      <div class="callout-title">💡 混沌 ≠ 隨機</div>
+      <strong>混沌</strong>：確定性規則 + 對初始條件極敏感 → 看似隨機，但有結構（吸引子、碎形維度）。<br>
+      <strong>隨機</strong>：本質無規則。
+    </div>
+  </section>
+
+  <!-- 熵 -->
+  <section id="s-entropy" class="section">
+    <div class="section-header"><span class="section-number">6.2~6.4</span><h2>熵 — 度量不確定性</h2></div>
+    <p>熵 (Entropy) 是衡量訊號『不可預測性』的標準工具：</p>
+    <div class="callout info">
+      H(x) = ∫ p(x) · log (1 / p(x)) dx
+    </div>
+    <p>p(x) 為訊號的機率密度。熵越大代表系統越不可預測。多通道情況下可用<strong>聯合熵</strong>；若某事件依賴另一事件，可用<strong>條件熵</strong>。</p>
+
+    <div class="callout warning">
+      <div class="callout-title">⚠️ 熵的限制</div>
+      熵對雜訊極敏感；<strong>純雜訊與混沌都可能有高熵</strong>，所以熵單獨無法區分『有規律的混沌』與『純隨機』。
+    </div>
+
+    <h3>6.3 Kolmogorov Entropy</h3>
+    <p>Kolmogorov（或 metric）熵把相空間切成 n-cube，計算軌跡落入各 cube 的聯合機率：</p>
+    <div class="callout info">
+      K_n = − Σ P(i_0,...,i_n) ln P(i_0,...,i_n)<br>
+      K = lim 1/(NT) · Σ (K_{n+1} − K_n)
+    </div>
+    <p>它估計『從 nT 時刻已知的軌跡 → 預測 (n+1)T 時刻所需的資訊量』。<strong>缺點：</strong>高維 joint pdf 估計很昂貴，且需大量資料。</p>
+
+    <h3>6.4 多尺度離散熵 (MFDE)</h3>
+    <p>SampEn、FuzEn、PerEn 都在『單一時間尺度』量化複雜度，但生理訊號天生具<strong>多尺度</strong>結構。MFDE 透過：</p>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Coarse-graining</strong><small>把訊號切成不重疊段，取均值得到不同尺度的時間序列。</small></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><strong>NCDF 映射</strong><small>透過常態累積分佈函數把 x_j 映到 [0, 1]。</small></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><strong>線性量化</strong><small>映到 C 個離散等級。</small></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-body"><strong>建立 fluctuation pattern</strong><small>定義 π_{v_0...v_{m-1}}，計算發生機率。</small></div></div>
+      <div class="step"><div class="step-num">5</div><div class="step-body"><strong>計算 FDispEn</strong><small>對所有 pattern 求 − Σ p ln p。</small></div></div>
+    </div>
+    <p>MFDE 已廣泛用於阿茲海默症、思覺失調、癲癇等的 EEG 複雜度量化。</p>
+  </section>
+
+  <!-- Lyapunov -->
+  <section id="s-lyapunov" class="section">
+    <div class="section-header"><span class="section-number">6.5~6.7</span><h2>Lyapunov 指數 — 軌跡發散的速率</h2></div>
+    <p>Lyapunov 指數 λ 是混沌的「數值身分證」：</p>
+
+    <div class="callout info">
+      λ(x_0) = lim 1/n · Σ ln |f'(x_{k-1})|
+    </div>
+
+    <ul>
+      <li><strong>λ &gt; 0</strong> → 系統混沌（誤差以 e^(λn) 放大）</li>
+      <li><strong>λ &lt; 0</strong> → 系統有序、軌跡收斂</li>
+      <li><strong>λ ≈ 0</strong> → 邊緣穩定</li>
+    </ul>
+
+    <!-- 互動 1：Lyapunov 收斂發散示意 -->
+    <h3>🎬 互動：Lyapunov 收斂 vs. 發散示意</h3>
+    <p>下方動畫展示兩條<strong>初值相差 ε</strong> 的軌跡，在『混沌 (logistic α=3.95)』與『有序 (logistic α=2.5)』兩種設定下的演化。觀察兩條線何時開始發散。</p>
+    <div class="interactive">
+      <div class="interactive-title">🌀 Logistic Map：混沌 vs. 有序</div>
+      <div class="interactive-controls">
+        <button id="lyap-chaos"  class="btn">▶ 混沌 (α = 3.95)</button>
+        <button id="lyap-order"  class="btn secondary">▶ 有序 (α = 2.5)</button>
+        <button id="lyap-reset"  class="btn secondary">↺ 重置</button>
+      </div>
+      <div class="svg-figure" style="padding:8px;">
+        <svg id="lyap-plot" viewBox="0 0 720 280" style="width:100%;max-width:760px;background:#fafbff;border-radius:8px;"></svg>
+        <div class="svg-caption" id="lyap-caption">紅色與藍色軌跡初值差 ε = 10⁻⁵；觀察是否快速分離。</div>
+      </div>
+    </div>
+
+    <h3>Quadratic iterator 範例</h3>
+    <p>x(n+1) = α x(n)(1 − x(n))，α = 3.8 時：前 20 點看似隨機；後續呈半規律振盪。這正是 logistic map 在 chaos 區的典型表現。</p>
+
+    <h3>Kaplan–Yorke 猜想</h3>
+    <div class="callout info">
+      D_L = m + (1 / |λ_{m+1}|) · Σ_{k=1}^{m} λ_k
+    </div>
+    <p>其中 m 是最大整數使 λ_1 + ... + λ_m ≥ 0。<strong>意涵：</strong>由相對容易計算的 Lyapunov 指數，就能反推奇異吸引子的維度。</p>
+
+    <h3>從時間序列估 Lyapunov — Wolf 演算法</h3>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-body"><strong>建立參考軌跡</strong><small>z_0(0) = x(k_0 τ)，選一個與 z(0) 距離小於 δ 的點。</small></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><strong>計算對數放大率</strong><small>l_0 = (1/τ) log |z_0(τ) − z_0(0)| / |x(τ) − x(0)|。</small></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><strong>重新選最近鄰</strong><small>當誤差超過 δ_2 就更新軌跡；確保 δ_1 &lt; 誤差 &lt; δ_2，避免雜訊主導或非線性誤差。</small></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-body"><strong>平均</strong><small>λ ≈ (1/m) Σ l_j。</small></div></div>
+    </div>
+  </section>
+
+  <!-- 維度與 DFA -->
+  <section id="s-dim" class="section">
+    <div class="section-header"><span class="section-number">6.6~6.7</span><h2>吸引子維度 與 Detrended Fluctuation Analysis</h2></div>
+
+    <h3>相空間吸引子</h3>
+    <p>由一維時間序列 x(t) 建立<strong>相空間嵌入</strong>：</p>
+    <div class="callout info">
+      v(t) = (x(t), x(t+τ), x(t+2τ), ..., x(t+(m-1)τ))
+    </div>
+    <p>關鍵參數：</p>
+    <ul>
+      <li><strong>時間延遲 τ</strong>：自相關第一次落到極小，或互訊息第一個極小。</li>
+      <li><strong>嵌入維度 m</strong>：需滿足 <strong>m ≥ 2 D_f + 1</strong>（Takens 定理）— 確保吸引子在歐式空間不自相交。</li>
+    </ul>
+
+    <!-- 互動 2：DFA / 嵌入示意 -->
+    <h3>🎬 互動：相空間嵌入示意（正弦 vs. 混沌）</h3>
+    <p>把訊號用延遲座標投到 2D 空間：正弦會繪出橢圓；混沌會繪出『折疊』的奇異吸引子；雜訊則是雲狀。</p>
+    <div class="interactive">
+      <div class="interactive-title">🧊 相空間嵌入：訊號的『指紋』</div>
+      <div class="interactive-controls">
+        <button id="attr-sine"   class="btn">🎵 正弦</button>
+        <button id="attr-chaos"  class="btn">🌀 混沌 (logistic)</button>
+        <button id="attr-noise"  class="btn">🔉 白雜訊</button>
+      </div>
+      <div class="svg-figure" style="padding:8px;">
+        <svg id="attr-plot" viewBox="0 0 720 300" style="width:100%;max-width:760px;background:#fafbff;border-radius:8px;"></svg>
+        <div class="svg-caption" id="attr-caption">左：原始時間序列；右：(x(t), x(t+τ)) 的相空間圖。</div>
+      </div>
+    </div>
+
+    <h3>三種維度的關係</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>維度</th><th>定義</th><th>備註</th></tr></thead>
+        <tbody>
+          <tr><td>Fractal dim. D_f</td><td>D_f = lim log M(ε) / log(1/ε)</td><td>Kolmogorov capacity；單點 D_f=0、線=1、面=2，可為非整數</td></tr>
+          <tr><td>Correlation dim. D_r</td><td>D_r = lim log C(r) / log r</td><td>Grassberger–Procaccia 演算法可估</td></tr>
+          <tr><td>Lyapunov dim. D_L</td><td>由 Lyapunov 指數估出</td><td>Kaplan–Yorke 猜想下 D_f = D_L = 1 + λ_1 / λ_2</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Detrended Fluctuation Analysis (DFA)</h3>
+    <p>DFA 專門處理<strong>非平穩</strong>訊號：</p>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-body"><strong>積分</strong><small>計算 y(k) = Σ (x(i) − x̄)，把訊號變成『隨機漫步』。</small></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><strong>切窗 + 去趨勢</strong><small>把 y(k) 切成長度 n 的窗，每窗擬合一條多項式 (通常線性) 並減去。</small></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><strong>計算 F(n)</strong><small>F(n) = √( (1/N) Σ (y(k) − y_fit(k))² )。</small></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-body"><strong>估冪律指數 α</strong><small>F(n) ∝ n^α；α ≈ 0.5 表白雜訊、α ≈ 1 表 1/f 噪聲、α ≈ 1.5 表布朗運動。</small></div></div>
+    </div>
+  </section>
+
+  <!-- RQA -->
+  <section id="s-rqa" class="section">
+    <div class="section-header"><span class="section-number">6.7+</span><h2>Recurrence Quantification Analysis (RQA)</h2></div>
+    <p>Recurrence plot 把相空間軌跡兩兩比較，距離小於閾值就標一個點。RQA 進一步從這張圖量化系統的<strong>規律性與混沌度</strong>：</p>
+    <ul>
+      <li><strong>Recurrence Rate (RR)</strong>：點密度，反映 recurrence 的多寡。</li>
+      <li><strong>Determinism (DET)</strong>：對角線段的比例 → 越高代表越接近週期性。</li>
+      <li><strong>Lmax / Lmean</strong>：最長／平均對角線段長 → 與 Lyapunov 指數倒數相關。</li>
+      <li><strong>Entropy (ENT)</strong>：對角線長度分佈的熵 → 複雜度指標。</li>
+    </ul>
+    <p>RQA 在 EEG 上常用於發作偵測、睡眠分期、認知任務分類。</p>
+  </section>
+
+  <!-- HOS / Bispectrum -->
+  <section id="s-hos" class="section">
+    <div class="section-header"><span class="section-number">6.8</span><h2>高階統計與 Bispectrum</h2></div>
+    <p>傳統功率譜只到二階，<strong>對相位資訊不敏感、對非線性盲</strong>。Higher-Order Statistics (HOS) 補上這個缺口：</p>
+    <div class="callout info">
+      <strong>Bispectrum</strong> = 三階累積量的二維傅立葉。可看出『二次相位耦合 (QPC)』 — 即頻率 f_1, f_2 是否與 f_1+f_2 有相位鎖定。
+    </div>
+    <ul>
+      <li>對高斯訊號：bispectrum = 0（高斯只有二階非零）。</li>
+      <li>對非高斯／非線性訊號：bispectrum 非零，揭露相位耦合。</li>
+      <li>EEG 應用：麻醉深度監測（Bispectral Index, BIS）、癲癇放電辨識、睡眠分期。</li>
+    </ul>
+  </section>
+
+  <!-- ApEn -->
+  <section id="s-apen" class="section">
+    <div class="section-header"><span class="section-number">6.8+</span><h2>Approximate Entropy (ApEn)</h2></div>
+    <p>ApEn 是 Pincus 1991 年提出的『實務化』熵：</p>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-body"><strong>建立 m-vector</strong><small>x(i) = (x(i), x(i+1), ..., x(i+m-1))。</small></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><strong>計算配對</strong><small>對每個 i 算有多少 j 使距離 d[x(i), x(j)] ≤ β。</small></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><strong>取對數平均</strong><small>ψ_β^m = (1/(N-m+1)) Σ ln ξ_β^m(i)。</small></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-body"><strong>對 m+1 重複，計算 ApEn = ψ_β^m − ψ_β^{m+1}</strong><small>常取 β = 0.1 ~ 0.25 × σ。</small></div></div>
+    </div>
+    <p><strong>優點：</strong>對短資料可用、對 outliers (尖峰) 不敏感、實時應用友善。</p>
+
+    <h3>用『預測階數』看複雜度</h3>
+    <p>另一個直觀指標：高度相關訊號 (如正弦) 的 AR 模型階數低；雜訊或複雜訊號的 AR 階數高。AIC（Akaike Information Criterion）是常用準則。書中 Figure 6.4 即展示了訊號中段為正弦、首尾為雜訊時，預測階數的變化情形。</p>
+  </section>
+
+  <!-- 摘要 -->
+  <section id="s-summary" class="section">
+    <div class="section-header"><span class="section-number">6.10</span><h2>本章摘要</h2></div>
+    <ul>
+      <li>大腦是高度非線性的動態系統；混沌分析提供工具從訊號反推系統指紋。</li>
+      <li>熵 (Entropy)：通用不確定性度量，<strong>但對雜訊敏感</strong>，無法區分混沌與雜訊。</li>
+      <li>Kolmogorov 熵需要高維 joint pdf，運算量大；MFDE 是現代多尺度替代品。</li>
+      <li>Lyapunov 指數：軌跡發散的平均對數速率。λ &gt; 0 ↔ 混沌。</li>
+      <li>由 Kaplan–Yorke 可由 λ 估出吸引子的 Lyapunov 維度。</li>
+      <li>相空間嵌入需選對 τ（自相關／MI 極小）與 m（≥ 2 D_f + 1）。</li>
+      <li>Correlation/Fractal/Lyapunov 維度三者在合理條件下會吻合。</li>
+      <li>DFA 處理非平穩、估冪律 scaling exponent α。</li>
+      <li>RQA 透過相空間 recurrence 圖量化規律性；Bispectrum 看二次相位耦合。</li>
+      <li>ApEn 對短資料、有 outliers 的場景特別實用。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🚀 下一步</div>
+      第 7 章將進入<strong>機器學習在 EEG 的應用</strong>：把這些混沌與動力指標當成『特徵』，再交給分類器（SVM、隨機森林、深度神經網路）做疾病辨識、BCI 解碼、情緒識別等任務。
+    </div>
+  </section>
+
+  <!-- Quiz -->
+  <section id="s-quiz">
+    <div id="quiz-host"></div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">本網頁內容依教學目的整理自 Sanei &amp; Chambers (2022) 第 6 章。</div>
+</footer>
+
+<script src="../assets/js/api.js?v=1"></script>
+<script src="../assets/js/quiz-engine.js?v=1"></script>
+<script src="../assets/data/chapter06-questions.js?v=1"></script>
+<script src="../assets/js/chapter06.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第八章 — 腦連結性與其應用 | EEG Signal Processing 互動教材</title>
+<meta name="description" content="EEG Signal Processing and Machine Learning, 2nd Edition — Chapter 8 Brain Connectivity and Its Applications 互動式教學。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css?v=1">
+</head>
+<body>
+
+<!-- ===== 上方導覽 ===== -->
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html" class="site-logo">
+      <svg class="site-logo-icon" viewBox="0 0 32 32" fill="none">
+        <path d="M2 16 Q5 6 9 16 T16 16 T23 16 T30 16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+      </svg>
+      EEG 互動教材
+    </a>
+    <nav class="site-nav">
+      <a href="#s-overview">概覽</a>
+      <a href="#s-intro">8.1 引言</a>
+      <a href="#s-types">8.2 功能 vs 有效</a>
+      <a href="#s-coh">8.3 同調與 PLV</a>
+      <a href="#s-granger">8.4 Granger / DTF</a>
+      <a href="#s-pdc">8.5 PDC</a>
+      <a href="#s-graph">8.6 圖論</a>
+      <a href="#s-hubs">8.7 網絡樞紐</a>
+      <a href="#s-apps">8.8 應用</a>
+      <a href="#s-summary">8.9 摘要</a>
+      <a href="#s-quiz">📝 測驗</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== Hero 章節首屏 ===== -->
+<section class="chapter-hero">
+  <div class="chapter-hero-inner">
+    <span class="chapter-tag">CHAPTER 08</span>
+    <h1 class="chapter-title">Brain Connectivity and Its Applications</h1>
+    <p class="chapter-subtitle">腦連結性：從相位同步到圖論，看大腦如何「組隊工作」</p>
+    <div class="chapter-objectives">
+      <h3>🎯 本章學習目標</h3>
+      <ul>
+        <li>區分「功能性連結 (functional connectivity)」與「有效性連結 (effective connectivity)」。</li>
+        <li>用白話說明 Coherence、Phase Locking Value (PLV) 等同步指標的意涵。</li>
+        <li>理解 Granger Causality / DTF / PDC 為什麼能描述「誰影響誰」。</li>
+        <li>掌握圖論的核心指標：度 (degree)、集群係數、最短路徑、小世界網絡。</li>
+        <li>知道什麼是「網絡樞紐 (hub)」，及為什麼樞紐失能會造成嚴重的腦功能異常。</li>
+        <li>了解腦連結性在 Alzheimer's、MCI 等臨床診斷上的角色。</li>
+        <li>對體積導體效應 (volume conduction) 等「假同步」的陷阱有警覺。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<main class="page">
+
+  <!-- ===== 概覽 ===== -->
+  <section id="s-overview" class="section">
+    <div class="section-header"><span class="section-number">OVERVIEW</span><h2>本章地圖</h2></div>
+    <p>傳統 EEG 看的是<strong>單一電極的振幅</strong>變化。但近年神經科學的核心觀念是：「<strong>腦功能來自腦區之間的合作</strong>」。本章把腦看成一個由節點（電極或腦區）+ 邊（連結）組成的網絡，並介紹用 EEG 估計這些連結強度與方向的工具箱。</p>
+    <div class="callout key">
+      <div class="callout-title">🧭 三層思考架構</div>
+      <ol style="margin:6px 0;">
+        <li><strong>是否有連結？</strong> → 相關、Coherence、PLV、Phase-Slope Index。</li>
+        <li><strong>方向是誰指向誰？</strong> → Granger Causality、DTF、PDC。</li>
+        <li><strong>整體網絡長什麼樣？</strong> → 圖論：節點度、集群、路徑長度、樞紐、小世界。</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ===== 8.1 引言 ===== -->
+  <section id="s-intro" class="section">
+    <div class="section-header"><span class="section-number">8.1</span><h2>引言 — 腦不是一堆獨立區域</h2></div>
+    <p>腦連結性研究的根可以追溯到 Santiago Ramon y Cajal（1852–1934）與 Brodmann（1868–1918，把皮質劃分成 52 區）。Wilder Penfield 用電刺激為這些區域畫上功能標籤。Sporns 把這個概念延伸成<strong>腦連結組 (brain connectome)</strong>，現代神經科學把腦看成一個彼此通訊的網絡。</p>
+
+    <p>連結性研究可以從幾個維度劃分：</p>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>結構性 vs 功能性</h4>
+        <div class="pros"><strong>結構性</strong>：解剖上的纖維束（DTI/MRI 可看到）</div>
+        <div class="pros"><strong>功能性</strong>：訊號上的相關／同步</div>
+        <div class="cons">結構不見得用，功能也可能跨遠處發生</div>
+      </div>
+      <div class="compare-card">
+        <h4>靜態 vs 動態</h4>
+        <div class="pros"><strong>靜態</strong>：不隨時間改變的「連線圖」</div>
+        <div class="pros"><strong>動態</strong>：隨任務或狀態變化的時變連結</div>
+        <div class="cons">EEG 最擅長看動態</div>
+      </div>
+      <div class="compare-card">
+        <h4>微觀 / 中觀 / 巨觀</h4>
+        <div class="pros"><strong>微觀</strong>：單一神經元</div>
+        <div class="pros"><strong>中觀</strong>：皮質柱</div>
+        <div class="pros"><strong>巨觀</strong>：腦區，EEG 主要在這層</div>
+      </div>
+    </div>
+
+    <div class="callout warning">
+      <div class="callout-title">⚠️ 重要陷阱：體積導體 (Volume Conduction)</div>
+      <p style="margin:6px 0;">EEG 訊號會像電流穿過導體一樣，<strong>同一個源在好幾個電極都被看到，且相位差近乎為零</strong>。這會造成「假同步」假象。處理連結性時必須能<u>分辨</u>體積導體 (零相位差) 與真正的功能連結 (有時間延遲)。</p>
+      <p style="margin:6px 0;">→ 因此單純的 Pearson 相關不夠用；要用會看「相位」的指標如 coherence、PLV、PSI。</p>
+    </div>
+  </section>
+
+  <!-- ===== 8.2 功能性 vs 有效性 ===== -->
+  <section id="s-types" class="section">
+    <div class="section-header"><span class="section-number">8.2</span><h2>Functional vs Effective Connectivity</h2></div>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>Functional Connectivity 功能性連結</h4>
+        <div class="pros">兩個區域的訊號<strong>時間相關</strong>就算數</div>
+        <div class="pros">不分方向，只看「有沒有同步」</div>
+        <div class="pros">常用：相關係數、Coherence、PLV</div>
+        <div class="cons">無法告訴你「誰影響誰」</div>
+      </div>
+      <div class="compare-card">
+        <h4>Effective Connectivity 有效性連結</h4>
+        <div class="pros">描述<strong>方向性</strong>的因果影響</div>
+        <div class="pros">A 影響 B，但 B 不一定影響 A</div>
+        <div class="pros">常用：Granger Causality、DTF、PDC</div>
+        <div class="cons">需要時間序列模型 (AR / MVAR)</div>
+      </div>
+    </div>
+    <p style="margin-top:14px;">
+      <span class="term" data-tip="像兩人同時跳舞，你可以說他們同步，但分不出誰先動">功能性連結</span>
+      就像同步跳舞；
+      <span class="term" data-tip="像領舞者帶動隨舞者，能看出『領→跟』的因果方向">有效性連結</span>
+      則像領舞者帶動跟隨者。
+    </p>
+  </section>
+
+  <!-- ===== 8.3 Coherence / PLV ===== -->
+  <section id="s-coh" class="section">
+    <div class="section-header"><span class="section-number">8.3</span><h2>Coherence 與 Phase Locking Value</h2></div>
+    <h3>📐 Coherence 同調性</h3>
+    <p>Coherence 是「<strong>頻率域</strong>的相關性」。在頻率 ω 上，兩通道 i, j 的同調性定義為：</p>
+    <div class="callout info">
+      <strong>Coh²<sub>ij</sub>(ω) = | E[C<sub>ij</sub>(ω)] |² / ( E[C<sub>ii</sub>(ω)] × E[C<sub>jj</sub>(ω)] )</strong><br>
+      其中 C<sub>ij</sub>(ω) = X<sub>i</sub>(ω) · X<sub>j</sub>*(ω) 是交叉頻譜 (cross-spectrum)。
+    </div>
+    <p>白話：把訊號用 FFT 拆成不同頻率成分後，看兩通道在每個頻率上「振幅+相位」的相關有多強。值介於 0–1，越接近 1 越同步。</p>
+
+    <h3>🔄 Phase Locking Value (PLV)</h3>
+    <p>PLV 只看「<strong>相位差是否一致</strong>」，忽略振幅。如果每次都差固定 π/4，PLV 接近 1；若亂跑接近 0。</p>
+    <ul>
+      <li>對振幅的雜訊較不敏感。</li>
+      <li>但仍會被體積導體污染（零相位差也是「鎖相」）。</li>
+    </ul>
+
+    <h3>⏳ Phase-Slope Index (PSI)</h3>
+    <p>為了對抗雜訊與獨立雜訊的影響，提出 PSI：<strong>cause 必須早於 effect</strong>，所以相位的斜率反映方向性。</p>
+    <div class="callout key">
+      <div class="callout-title">📌 直覺記法</div>
+      Coherence 看「有沒有一起變」；PLV 看「相位有沒有鎖住」；PSI 進一步看「斜率」推方向。
+    </div>
+  </section>
+
+  <!-- ===== 8.4 Granger / DTF ===== -->
+  <section id="s-granger" class="section">
+    <div class="section-header"><span class="section-number">8.4</span><h2>Granger Causality 與 Directed Transfer Function (DTF)</h2></div>
+
+    <h3>🧠 Granger Causality 的核心觀念</h3>
+    <p>1969 年 Clive Granger 提出（後來拿諾貝爾獎）：</p>
+    <div class="callout info">
+      若<strong>用 y(t) 的過去</strong>來預測 x(t)，比只用 x(t) 自己的過去更準，就說 <strong>y 是 x 的 Granger 原因</strong>。
+    </div>
+    <p>注意它<strong>不是「真實的」因果</strong>，只是「資訊上能預測」。但仍是 EEG 連結方向最常用的概念。</p>
+
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-body"><strong>單變量 AR 模型</strong><small>e(t) = x(t) − Σ a(i)·x(t−i)；σ²<sub>e</sub> 是只用 x 過去預測 x 的誤差。</small></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><strong>雙變量 AR 模型</strong><small>e₁(t) = x(t) − Σ a₁₁(i)x(t−i) − Σ a₁₂(i)y(t−i)；如果加入 y 之後誤差σ²<sub>e1</sub> 顯著變小⋯⋯</small></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><strong>Granger 因果指數</strong><small>GCI = ln(σ²<sub>e</sub> / σ²<sub>e1</sub>)。值越大代表 y 越能幫忙預測 x，y → x 越強。</small></div></div>
+    </div>
+
+    <h3>🔁 從 Granger 到 MVAR 與 DTF</h3>
+    <p>多通道時，逐對 Granger 太貴。改用 <strong>多變量自迴歸 (MVAR)</strong> 一次估全部通道的係數矩陣，再轉成頻率域，得到傳輸矩陣 H(ω)。</p>
+    <p><strong>DTF (Directed Transfer Function)：</strong></p>
+    <div class="callout info">
+      Θ²<sub>ij</sub>(ω) = | H<sub>ij</sub>(ω) |² ；正規化後 γ²<sub>ij</sub>(ω) = | H<sub>ij</sub>(ω) |² / Σ<sub>m</sub> | H<sub>im</sub>(ω) |²
+    </div>
+    <p>γ²<sub>ij</sub> 介於 0–1，且每列總和為 1。<strong>優點：</strong>能在兩個區域<u>頻譜重疊</u>時仍區分方向（這是 Coherence 做不到的）。短時 DTF (SDTF) 可以追時變方向，常用於手指運動 BCI。</p>
+  </section>
+
+  <!-- ===== 8.5 PDC ===== -->
+  <section id="s-pdc" class="section">
+    <div class="section-header"><span class="section-number">8.5</span><h2>Partial Directed Coherence (PDC)</h2></div>
+    <p>DTF 看的是「所有路徑」(包含間接傳遞)。Baccala & Sameshima (2001) 提出 PDC，<strong>只看『直接』影響</strong>：</p>
+    <div class="callout info">
+      P<sub>ij</sub>(ω) = A<sub>ij</sub>(ω) / √( a<sub>j</sub>*(ω)·a<sub>j</sub>(ω) )
+    </div>
+    <p>其中 A(ω) 是 MVAR 係數的傅立葉轉換。直觀來說：</p>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>DTF</h4>
+        <div class="pros">A → B → C 時，A 對 C 也算有連結</div>
+        <div class="cons">無法區分直接 vs 間接</div>
+      </div>
+      <div class="compare-card">
+        <h4>PDC</h4>
+        <div class="pros">A → B → C 時，A 對 C 的 PDC ≈ 0（只有 B 對 C 才有）</div>
+        <div class="cons">較敏感於雜訊與模型階數選擇</div>
+      </div>
+    </div>
+    <div class="callout tip">
+      <div class="callout-title">💡 實務</div>
+      實際研究常<strong>同時報告 DTF 與 PDC</strong>。前者反映整體資訊流，後者反映直接路徑。
+    </div>
+  </section>
+
+  <!-- ===== 8.6 圖論 ===== -->
+  <section id="s-graph" class="section">
+    <div class="section-header"><span class="section-number">8.6</span><h2>圖論 (Graph Theory) 與小世界網絡</h2></div>
+    <p>有了「節點」與「邊」的權重後，可以把腦變成一張圖，計算它的拓撲特徵。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>指標</th><th>意義</th><th>白話比喻</th></tr></thead>
+        <tbody>
+          <tr><td>度 (Degree)</td><td>節點連到幾個鄰居</td><td>朋友數量</td></tr>
+          <tr><td>集群係數 (Clustering Coefficient)</td><td>「我的朋友彼此也是朋友」的比例</td><td>朋友圈緊密程度</td></tr>
+          <tr><td>最短路徑長度 (Path Length)</td><td>兩節點之間平均要跳幾步</td><td>六度分隔</td></tr>
+          <tr><td>中心性 (Centrality)</td><td>節點在資訊流通中的重要性</td><td>誰是「樞紐」</td></tr>
+          <tr><td>小世界性 (Small-Worldness)</td><td>高集群 + 短路徑</td><td>「熟人」「捷徑」兼具</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>🌐 互動：點擊節點看連結度</h3>
+    <p>下面是一張簡化的腦網絡。點選任一節點會顯示它的<strong>度 (degree)</strong> 與相連對象。</p>
+    <div class="interactive">
+      <div class="interactive-title">🧠 腦網絡互動圖</div>
+      <div class="svg-figure">
+        <svg id="brain-network" viewBox="0 0 600 360" style="width:100%;max-width:720px;background:#fafbff;border-radius:8px;">
+          <!-- 節點與邊由 JS 繪製 -->
+        </svg>
+        <div class="svg-caption">點擊節點查看它的連結資訊；顏色深淺代表度的大小</div>
+      </div>
+      <div id="node-info" class="callout info" style="margin-top:14px;">點擊節點看詳細資訊。</div>
+    </div>
+
+    <h3>🌍 小世界網絡 (Small-World)</h3>
+    <p>Watts & Strogatz (1998) 經典結果：</p>
+    <ul>
+      <li><strong>規則格子 (Regular)：</strong>高集群、長路徑。</li>
+      <li><strong>隨機網絡 (Random)：</strong>低集群、短路徑。</li>
+      <li><strong>小世界 (Small-World)：</strong>高集群 + 短路徑，兼具二者之長。</li>
+    </ul>
+    <p><strong>大腦正是個典型的小世界網絡。</strong>研究指出，Alzheimer's、思覺失調等病患的腦<u>失去小世界性</u>（集群下降或路徑變長），可作為診斷依據。</p>
+
+    <div class="interactive">
+      <div class="interactive-title">🌐 三種網絡拓撲切換比較</div>
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <label><input type="radio" name="net-type" value="regular" checked> 規則 (Regular)</label>
+        <label><input type="radio" name="net-type" value="small" > 小世界 (Small-World)</label>
+        <label><input type="radio" name="net-type" value="random" > 隨機 (Random)</label>
+      </div>
+      <div class="svg-figure">
+        <svg id="topo-svg" viewBox="0 0 360 360" style="width:100%;max-width:420px;background:#fafbff;border-radius:8px;"></svg>
+      </div>
+      <div id="topo-desc" class="callout info" style="margin-top:10px;"></div>
+    </div>
+  </section>
+
+  <!-- ===== 8.7 樞紐 ===== -->
+  <section id="s-hubs" class="section">
+    <div class="section-header"><span class="section-number">8.7</span><h2>網絡樞紐 (Hubs)</h2></div>
+    <p>圖論中度極高的節點稱為 <strong>樞紐 (hub)</strong>。在腦網絡中，已知的樞紐包括：</p>
+    <ul>
+      <li><strong>後扣帶皮層 (PCC) / 楔前葉 (precuneus)</strong></li>
+      <li><strong>內側前額葉皮層 (mPFC)</strong></li>
+      <li><strong>後頂下回 (inferior parietal)</strong></li>
+      <li><strong>外側顳葉 (lateral temporal)</strong></li>
+    </ul>
+    <p>它們是預設模式網絡 (Default Mode Network, DMN) 的核心。</p>
+    <div class="callout warning">
+      <div class="callout-title">⚠️ 樞紐失能假說</div>
+      Alzheimer's 早期常見 PCC / 楔前葉的代謝下降與連結減少。<strong>因為樞紐連結最多，它出事整個網絡都會崩。</strong>就像機場大罷工，少一個小航點沒事，但 JFK 一關，全美航運打結。
+    </div>
+  </section>
+
+  <!-- ===== 8.8 應用 ===== -->
+  <section id="s-apps" class="section">
+    <div class="section-header"><span class="section-number">8.8</span><h2>臨床應用 — Alzheimer's 與 MCI</h2></div>
+    <p>連結性分析在神經退化疾病診斷上有大量應用。Huang et al. (2010) 比較了 AD、MCI、正常受試者的腦網絡：</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>連結類型</th><th>AD 的變化</th><th>MCI 的變化</th></tr></thead>
+        <tbody>
+          <tr><td>顳葉內 (within-temporal)</td><td>↓ 顯著下降</td><td>無顯著差異</td></tr>
+          <tr><td>額葉內 (within-frontal)</td><td>↑ 增加（代償假說）</td><td>輕微增加</td></tr>
+          <tr><td>頂葉-枕葉</td><td>↑ 顯著增加（代償）</td><td>↑ 但較弱</td></tr>
+          <tr><td>額葉-枕葉</td><td>無顯著差異</td><td>↓ 顯著下降</td></tr>
+          <tr><td>左右半球之間</td><td>顯著破壞</td><td>較不明顯</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout story">
+      <div class="callout-title">📖 代償 vs 破壞</div>
+      <p style="margin:6px 0;">AD 的腦連結變化不是「全部下降」，而是「某些下降、某些反而上升」。後者解讀為<strong>大腦試圖代償</strong>，調用更多認知資源。這也是為什麼用單一通道很難診斷 AD，<u>需要看整張網絡</u>。</p>
+    </div>
+
+    <h3>🛠 其他應用</h3>
+    <ul>
+      <li><strong>癲癇 (Seizure)：</strong>用 ECoG/EEG 找癲癇灶與傳播路徑。</li>
+      <li><strong>BCI：</strong>SDTF 用於分類左右手運動／想像。</li>
+      <li><strong>Parkinson's：</strong>追蹤震顫 (tremor) 與運動皮層的相位耦合。</li>
+      <li><strong>Hyperscanning：</strong>同步記錄多人 EEG，研究合作／競爭情境的「跨腦」同步。</li>
+      <li><strong>謊言偵測：</strong>結合 PDC 與 PPG，分析受訪者是否說謊。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 摘要 ===== -->
+  <section id="s-summary" class="section">
+    <div class="section-header"><span class="section-number">8.9</span><h2>本章摘要</h2></div>
+    <ul>
+      <li>腦連結性分為<strong>結構 vs 功能</strong>、<strong>靜態 vs 動態</strong>、<strong>功能性 vs 有效性</strong>。EEG 最擅長動態的功能性與有效性分析。</li>
+      <li>分辨真同步與體積導體假同步是首要任務 — Coherence / PLV / PSI 比 Pearson 相關更可靠。</li>
+      <li>Granger Causality 用「過去能否預測」定義方向；MVAR + DTF 適用多通道；PDC 進一步區分直接 / 間接。</li>
+      <li>圖論四大指標：度、集群係數、最短路徑、小世界性。腦是典型小世界網絡。</li>
+      <li>網絡樞紐失能是許多神經疾病（AD、思覺失調）的共同特徵。</li>
+      <li>應用範圍橫跨 AD/MCI 診斷、癲癇定位、BCI、Hyperscanning。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🚀 下一章預告</div>
+      第 9 章介紹「事件相關電位 (ERP)」— P300、N400、MMN、SSVEP 等大腦對刺激的<strong>即時反應</strong>。它們同樣會在腦網絡上傳遞，因此本章學的同步、方向、圖論工具都會再派上用場。
+    </div>
+  </section>
+
+  <!-- ===== Quiz ===== -->
+  <section id="s-quiz">
+    <div id="quiz-host"><!-- Quiz 引擎將掛載於此 --></div>
+  </section>
+
+</main>
+
+<!-- ===== 頁尾版權 ===== -->
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">本網頁內容依教學目的整理自 Sanei & Chambers (2022) 第 8 章。</div>
+</footer>
+
+<!-- ===== JS ===== -->
+<script src="../assets/js/api.js?v=1"></script>
+<script src="../assets/js/quiz-engine.js?v=1"></script>
+<script src="../assets/data/chapter08-questions.js?v=1"></script>
+<script src="../assets/js/chapter08.js?v=1"></script>
+</body>
+</html>

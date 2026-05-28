@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十章 — 腦源定位 | EEG Signal Processing 互動教材</title>
+<meta name="description" content="EEG Signal Processing and Machine Learning, 2nd Edition — Chapter 10 Localization of Brain Sources 互動式教學。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css?v=1">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html" class="site-logo">
+      <svg class="site-logo-icon" viewBox="0 0 32 32" fill="none">
+        <path d="M2 16 Q5 6 9 16 T16 16 T23 16 T30 16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+      </svg>
+      EEG 互動教材
+    </a>
+    <nav class="site-nav">
+      <a href="#s-overview">概覽</a>
+      <a href="#s-intro">10.1 引言</a>
+      <a href="#s-forward">10.2 正向問題</a>
+      <a href="#s-inverse">10.3 反向問題</a>
+      <a href="#s-dipole">10.4 Dipole</a>
+      <a href="#s-music">10.5 MUSIC</a>
+      <a href="#s-mne">10.6 MNE/LORETA</a>
+      <a href="#s-beam">10.7 Beamforming</a>
+      <a href="#s-bayes">10.8 Bayesian</a>
+      <a href="#s-apps">10.9 應用</a>
+      <a href="#s-summary">10.10 摘要</a>
+      <a href="#s-quiz">📝 測驗</a>
+    </nav>
+  </div>
+</header>
+
+<section class="chapter-hero">
+  <div class="chapter-hero-inner">
+    <span class="chapter-tag">CHAPTER 10</span>
+    <h1 class="chapter-title">Localization of Brain Sources</h1>
+    <p class="chapter-subtitle">從頭皮 EEG 反推大腦內部訊號源 — 正向問題、反向問題與經典演算法</p>
+    <div class="chapter-objectives">
+      <h3>🎯 本章學習目標</h3>
+      <ul>
+        <li>說出『正向問題』與『反向問題』的差別，以及為何反向問題是 ill-posed。</li>
+        <li>了解三種頭模型：球形 (Spherical)、邊界元素 (BEM)、有限元素 (FEM) 的優缺點。</li>
+        <li>掌握 Equivalent Current Dipole (ECD) 與 Distributed Source 兩大思路。</li>
+        <li>能說明 MUSIC、RAP-MUSIC 的子空間思想。</li>
+        <li>了解 Minimum Norm Estimate (MNE)、LORETA、sLORETA、FOCUSS 等代表性方法。</li>
+        <li>能說明 LCMV Beamforming 與 deflation beamformer 的原理與限制。</li>
+        <li>理解貝氏框架如何加入先驗（空間平滑、稀疏性、解剖約束）。</li>
+        <li>了解腦源定位的臨床應用：癲癇灶定位、ERP 源、BCI、AD 等。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<main class="page">
+
+  <section id="s-overview" class="section">
+    <div class="section-header"><span class="section-number">OVERVIEW</span><h2>本章地圖</h2></div>
+    <p>EEG 是大腦在頭皮上的『影子』，腦源定位 (source localization) 就是<strong>從影子反推光源</strong>。但因為頭皮電極只有十幾到幾百個，內部源可能成千上萬，這是一個典型的<strong>欠定 (underdetermined) 反向問題</strong>。本章帶你看四代解法：</p>
+    <div class="callout key">
+      <div class="callout-title">🧭 四代演算法</div>
+      <ol style="margin:6px 0;">
+        <li><strong>Dipole fitting：</strong>假設少數幾個磁/電偶極，用 LS 擬合。</li>
+        <li><strong>MUSIC 系列：</strong>子空間方法（MUSIC、RAP-MUSIC、FINES）。</li>
+        <li><strong>Distributed source：</strong>MNE、LORETA、sLORETA、FOCUSS。</li>
+        <li><strong>Beamforming & Bayesian：</strong>LCMV、Deflation BF、變分貝氏、貝氏先驗約束。</li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="s-intro" class="section">
+    <div class="section-header"><span class="section-number">10.1</span><h2>引言 — 為什麼要做腦源定位？</h2></div>
+    <p>EEG 的時間解析度極佳 (ms 級)，但<strong>空間解析度</strong>差。如果能準確知道「訊號來自哪一塊皮質」，就能：</p>
+    <ul>
+      <li>定位<strong>癲癇灶</strong>，協助規劃手術切除範圍。</li>
+      <li>研究 ERP 的神經產生源（如 P3a 在前額、P3b 在頂葉）。</li>
+      <li>了解運動想像在運動皮質的精確位置，用於 BCI。</li>
+      <li>追蹤 AD/MCI 等疾病的功能異常源。</li>
+    </ul>
+    <p>fMRI 雖有高空間解析度，但時間解析度太慢 (秒級)，且 40–60% 的 interictal EEG 病例 fMRI 找不到病灶。<strong>EEG 源定位是不可取代的工具</strong>。</p>
+  </section>
+
+  <section id="s-forward" class="section">
+    <div class="section-header"><span class="section-number">10.2</span><h2>正向問題與頭模型</h2></div>
+
+    <h3>📡 正向問題 (Forward Problem)</h3>
+    <p>給定『腦內某個位置的源』，計算它『會在頭皮各電極引發多大電位』。這是一個明確的物理問題，需要：</p>
+    <ul>
+      <li>頭部幾何 (來自 MRI)</li>
+      <li>各層組織的導電率（腦、CSF、顱骨、頭皮）</li>
+    </ul>
+
+    <p>解 Poisson 方程式 ∇·(σ∇V) = −ρ，得到 <strong>lead field matrix L</strong>：每一行是該電極對某位置／方向的靈敏度。EEG 觀測模型：</p>
+    <div class="callout info">
+      <strong>X = L · S + N</strong><br>
+      X = ne × T 電極電位；L = ne × 3m lead field；S = 3m × T 源強度；N = 雜訊。
+    </div>
+
+    <h3>🧱 三種頭模型比較</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>Spherical (球形)</h4>
+        <div class="pros">公式封閉解、計算超快</div>
+        <div class="cons">與真實頭差異大，深源誤差大</div>
+        <div class="cons">~3 層球：腦/顱骨/頭皮</div>
+      </div>
+      <div class="compare-card">
+        <h4>BEM (Boundary Element)</h4>
+        <div class="pros">取分界面 (頭皮、顱骨、腦) 三角網格</div>
+        <div class="pros">中等計算量、合理精度</div>
+        <div class="cons">仍假設每層內部均質</div>
+      </div>
+      <div class="compare-card">
+        <h4>FEM (Finite Element)</h4>
+        <div class="pros">把整個頭切成體網格（四面體）</div>
+        <div class="pros">可處理各向異性、最精準</div>
+        <div class="cons">計算量極大、對網格品質敏感</div>
+      </div>
+    </div>
+
+    <div class="callout warning">
+      <div class="callout-title">⚠️ 顱骨導電率隨年齡變化</div>
+      10 歲兒童腦/顱骨導電比約 10:1；55 歲約 25:1；老年人可達 50–80:1。<strong>同一個源在不同年齡頭皮反應不同</strong>，做臨床定位必須考量。
+    </div>
+
+    <h3>🎯 互動：正向 vs 反向問題示意</h3>
+    <div class="interactive">
+      <div class="interactive-title">🔄 點擊切換：正向 / 反向</div>
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <label><input type="radio" name="dir-type" value="forward" checked> 正向問題 (Source → EEG)</label>
+        <label><input type="radio" name="dir-type" value="inverse"> 反向問題 (EEG → Source)</label>
+      </div>
+      <div class="svg-figure">
+        <svg id="fi-svg" viewBox="0 0 560 320" style="width:100%;max-width:720px;background:#fafbff;border-radius:8px;"></svg>
+      </div>
+      <div id="fi-desc" class="callout info" style="margin-top:10px;"></div>
+    </div>
+  </section>
+
+  <section id="s-inverse" class="section">
+    <div class="section-header"><span class="section-number">10.3</span><h2>反向問題 — 為何難？</h2></div>
+    <p>反向問題是：給定頭皮 EEG，找回腦內所有源 S。難點：</p>
+    <ol>
+      <li><strong>欠定：</strong>未知源數 (數千) ≫ 觀測電極數 (~64)。無唯一解。</li>
+      <li><strong>非線性：</strong>頭部非均質介質造成的非線性。</li>
+      <li><strong>雜訊：</strong>頭皮 EEG SNR 低，且有眼動、肌電污染。</li>
+      <li><strong>源相關性：</strong>多個源可能高度相關（如雙側對稱腦區）。</li>
+    </ol>
+
+    <p>解決思路：<strong>加先驗 (priors)</strong>。例如：</p>
+    <ul>
+      <li>稀疏性 — 只有少數位置真的有源 (FOCUSS、Lp-norm)。</li>
+      <li>平滑性 — 鄰近位置的源應接近 (LORETA)。</li>
+      <li>解剖約束 — 源只能在皮質灰質、方向垂直於皮質表面。</li>
+      <li>fMRI BOLD 作為空間 prior。</li>
+    </ul>
+
+    <div class="callout info">
+      <div class="callout-title">📐 ECD vs Distributed</div>
+      兩大策略：<br>
+      <strong>(1) Equivalent Current Dipole (ECD)：</strong>假設只有少數幾個 dipole，用 LS 在 3D 空間搜尋最佳位置。<br>
+      <strong>(2) Distributed Source (LD)：</strong>同時考慮數千個固定位置的源，每個有未知強度，用正規化方法求 S。
+    </div>
+  </section>
+
+  <section id="s-dipole" class="section">
+    <div class="section-header"><span class="section-number">10.4</span><h2>Dipole Source Localization</h2></div>
+    <p>把每個源視為帶位置 L、方向 Q 的<strong>磁/電偶極</strong>。對 MEG，磁場：</p>
+    <div class="callout info">
+      B(i) = (μ₀ / 4π) · Σ<sub>j</sub> Q<sub>j</sub> × (R(i) − L<sub>j</sub>) / |R(i) − L<sub>j</sub>|³
+    </div>
+    <p>整理為 <strong>B = H(L, M) · S</strong>，用 LS 找參數：</p>
+    <div class="callout info">
+      J<sub>LS</sub> = ‖ X − H(L,M)·S ‖²<sub>F</sub>
+    </div>
+
+    <h3>📍 互動：移動 Dipole 看頭皮電位</h3>
+    <p>下面的互動：可<strong>拖動或點擊</strong>大腦內的紅點 (dipole) 改變位置，會看到頭皮電極的『預測電位』分佈跟著變化。</p>
+    <div class="interactive">
+      <div class="interactive-title">🧲 互動 Dipole 與頭皮電位</div>
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+        <label>X：<input id="dpx" type="range" min="-80" max="80" value="0" step="2" style="width:120px"></label>
+        <label>Y (深度)：<input id="dpy" type="range" min="-60" max="60" value="0" step="2" style="width:120px"></label>
+        <label>方向 (°)：<input id="dpa" type="range" min="0" max="360" value="90" step="5" style="width:120px"></label>
+      </div>
+      <div class="svg-figure">
+        <svg id="dipole-svg" viewBox="0 0 560 320" style="width:100%;max-width:720px;background:#fafbff;border-radius:8px;"></svg>
+      </div>
+      <div id="dipole-desc" class="callout info" style="margin-top:10px;"></div>
+    </div>
+
+    <p>觀察：</p>
+    <ul>
+      <li>Dipole 越靠近電極 → 該電極電位越大（與距離立方反比）。</li>
+      <li>Dipole 越<strong>深</strong>，頭皮分布越<strong>瀰漫</strong>，難以準確定位。</li>
+      <li>方向影響極性 (+/−) 對稱性。</li>
+    </ul>
+
+    <div class="callout warning">
+      <div class="callout-title">⚠️ Dipole fitting 的兩大陷阱</div>
+      <ul style="margin:6px 0;">
+        <li><strong>太少 dipole：</strong>結果被遺漏源污染。</li>
+        <li><strong>太多 dipole：</strong>引入虛假源，且運算成本飆升。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="s-music" class="section">
+    <div class="section-header"><span class="section-number">10.5</span><h2>MUSIC 與 RAP-MUSIC</h2></div>
+    <p>MUSIC = MUltiple SIgnal Classification，源自陣列訊號處理。核心思想：</p>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-body"><strong>計算 R<sub>x</sub> = X · X<sup>T</sup></strong><small>對 EEG 共變異矩陣做特徵值分解</small></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><strong>分出訊號子空間 Φ<sub>s</sub> 與雜訊子空間 Φ<sub>e</sub></strong><small>前 m 大特徵向量對應源，剩餘對應雜訊</small></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><strong>在 3D 網格搜尋</strong><small>找使 a(ρ, θ) 與訊號子空間 Φ<sub>s</sub> 的 subspace correlation 接近 1 的位置</small></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-body"><strong>峰值即為源位置</strong><small>找最大值，refine 網格</small></div></div>
+    </div>
+
+    <h3>🔁 Recursive MUSIC 與 RAP-MUSIC</h3>
+    <p>原始 MUSIC 要對 3D 整個頭部窮舉，計算量大且容易因雜訊估錯子空間。改良版：</p>
+    <ul>
+      <li><strong>Recursive MUSIC：</strong>每找到一個源就把它加入模型，遞回找下一個。</li>
+      <li><strong>RAP-MUSIC：</strong>找到源後把訊號子空間投影到該源的正交補空間，下次只在『剩下』的子空間找。</li>
+      <li><strong>FINES：</strong>用特定方向的雜訊子空間投影，對接近源更敏感、解析度更好。</li>
+    </ul>
+
+    <div class="callout tip">
+      <div class="callout-title">💡 何時用 MUSIC？</div>
+      源數 ≪ 電極數、源在時間上不同步、雜訊近似空間白噪。MEG 比 EEG 更適用 (頭骨對磁場透明)。
+    </div>
+  </section>
+
+  <section id="s-mne" class="section">
+    <div class="section-header"><span class="section-number">10.6</span><h2>MNE、LORETA、sLORETA、FOCUSS</h2></div>
+
+    <h3>📌 Minimum Norm Estimate (MNE)</h3>
+    <p>所有可能的 S 中，找『能量最小』的：</p>
+    <div class="callout info">
+      min ‖S‖²₂ subject to X = L·S<br>
+      解：<strong>Ŝ = L<sup>T</sup> (L L<sup>T</sup>)<sup>−1</sup> X</strong>
+    </div>
+    <p>優點：簡單線性。<strong>缺點：偏向淺源</strong>（深源被低估）。</p>
+
+    <h3>📌 Weighted Minimum Norm (WMN)</h3>
+    <p>給每個源加權，補償深源：</p>
+    <div class="callout info">
+      W = diag(1/‖L₁‖, 1/‖L₂‖, …)；<br>
+      min ‖W·S‖² s.t. X = L·S
+    </div>
+
+    <h3>📌 LORETA</h3>
+    <p><strong>Low-Resolution Electromagnetic Tomography</strong>：在 WMN 基礎上再加<strong>空間平滑性</strong>約束（Laplacian operator B）：</p>
+    <div class="callout info">
+      min ‖B·W·S‖² s.t. X = L·S
+    </div>
+    <p>結果：產生『平滑的源分布圖』，深源不再被忽略。LORETA 已商品化，是臨床最常用之一。</p>
+
+    <h3>📌 sLORETA</h3>
+    <p><strong>Standardized LORETA</strong>：對 MNE 結果做<strong>標準化</strong>（除以 resolution matrix 的對角項開根號）。</p>
+    <ul>
+      <li>單源時定位無偏。</li>
+      <li>多源時 LORETA (p=1.5) 較佳；sLORETA 只能找最強源。</li>
+    </ul>
+
+    <h3>📌 FOCUSS</h3>
+    <p><strong>FOCal Underdetermined System Solver</strong>：高解析度迭代 WMN，每次用上一輪估計值更新權重 → 結果<strong>越來越稀疏</strong>。</p>
+    <p>缺點：對初始化敏感、易卡局部極小。常用 <strong>SSLOFO = sLORETA → FOCUSS</strong> 串接：用 sLORETA 給初始值，再用 FOCUSS 精化。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>方法</th><th>特點</th><th>適合情境</th></tr></thead>
+        <tbody>
+          <tr><td>MNE</td><td>最小能量、線性</td><td>單一強源、淺源</td></tr>
+          <tr><td>WMN</td><td>補償深源</td><td>已知大略深淺</td></tr>
+          <tr><td>LORETA</td><td>空間平滑、低解析但穩定</td><td>瀰漫多源</td></tr>
+          <tr><td>sLORETA</td><td>單源無偏</td><td>單一主源</td></tr>
+          <tr><td>FOCUSS</td><td>迭代稀疏</td><td>已知源稀少</td></tr>
+          <tr><td>SSLOFO</td><td>sLORETA 初值 + FOCUSS 精化</td><td>實用、多源</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s-beam" class="section">
+    <div class="section-header"><span class="section-number">10.7</span><h2>Beamforming (LCMV)</h2></div>
+    <p>Beamformer 是空間濾波器：對某個位置 ρ 設計權重 W<sub>ρ</sub>，使該位置的訊號通過、其他位置壓制。</p>
+
+    <h3>📡 LCMV (Linearly Constrained Minimum Variance)</h3>
+    <div class="callout info">
+      min<sub>W</sub> Var(W<sup>T</sup>·y) subject to W<sup>T</sup>·H(ρ) = I
+    </div>
+    <p>在『感興趣位置強度為 1』的約束下，最小化其他位置造成的方差。對每個 ρ 都重複，畫出全腦『源功率圖』。</p>
+
+    <h3>🚫 Deflation Beamformer</h3>
+    <p>LCMV 的痛點：當兩個源高度相關（如雙側對稱聽覺皮質），輸出會互相抵消、源『流向腦中心』。</p>
+    <p>Deflation BF 加上『前一輪已定位源的零點 (null) 約束』：</p>
+    <ol>
+      <li>定位第一個源 ρ₁。</li>
+      <li>下一輪約束 W<sup>T</sup>·H(ρ₁) = 0，搜尋第二個源 ρ₂。</li>
+      <li>更新後交換，repeat 至收斂。</li>
+    </ol>
+    <p>結果：源更聚焦、不再泡向中心。</p>
+
+    <div class="callout warning">
+      <div class="callout-title">⚠️ LCMV 的兩大限制</div>
+      <ul style="margin:6px 0;">
+        <li>對高度相關源失效。</li>
+        <li>對 lead field 模型誤差敏感（頭模型不準會偏掉）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="s-bayes" class="section">
+    <div class="section-header"><span class="section-number">10.8</span><h2>貝氏腦源定位</h2></div>
+    <p>把反向問題寫成 MAP (maximum a posteriori)：</p>
+    <div class="callout info">
+      ŝ(n) = arg max p(s(n) | x(n)) = arg max p(x(n) | s(n)) · p(s(n))
+    </div>
+    <p>透過先驗 p(s(n)) 加入空間／時間限制：</p>
+    <ul>
+      <li><strong>空間先驗 U<sub>s</sub>：</strong>來自 fMRI BOLD 或解剖灰質。</li>
+      <li><strong>平滑先驗：</strong>鄰近源應接近，用梯度平方項。</li>
+      <li><strong>時間先驗 U<sub>t</sub>：</strong>s(n) 投影到 s(n−1) 正交方向的能量要小（時間平滑）。</li>
+    </ul>
+
+    <p>最終最佳化：</p>
+    <div class="callout info">
+      ŝ(n) = arg min { ‖x − Hs‖² + α · 空間平滑項 + β · 時間平滑項 }
+    </div>
+    <p>變分貝氏 (Variational Bayes) 進一步用可分解分布近似後驗，可同時估出 ECD 位置、振幅、潛時與雜訊變異數。</p>
+
+    <h3>🤖 機器學習方法</h3>
+    <p>近年將 ANN/DNN 應用於正向與反向問題：</p>
+    <ul>
+      <li>Abeyratne 等用 ANN 學 dipole 位置 → 頭皮電位的映射。</li>
+      <li>27 個電極輸入、2 層隱藏層，達到 ~3.5 mm 平均誤差。</li>
+      <li>DNN 可學到頭部非線性、處理多源情境，缺點：需大量模擬資料訓練。</li>
+    </ul>
+  </section>
+
+  <section id="s-apps" class="section">
+    <div class="section-header"><span class="section-number">10.9</span><h2>應用與軟體</h2></div>
+    <h3>🏥 主要臨床應用</h3>
+    <ul>
+      <li><strong>癲癇灶定位：</strong>定位 interictal spike 來源、規劃手術切除位置。</li>
+      <li><strong>ERP 源定位：</strong>P3a / P3b 在思覺失調 / 健康者間源位置分布不同（書中 Fig 10.6 vs 10.7）。</li>
+      <li><strong>BCI / 神經回饋：</strong>找到運動想像皮質源，提升分類準確度。</li>
+      <li><strong>術中監測：</strong>協助腦腫瘤手術避開功能區。</li>
+    </ul>
+
+    <h3>🛠 常用軟體</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>名稱</th><th>類型</th><th>支援方法</th></tr></thead>
+        <tbody>
+          <tr><td>Brainstorm</td><td>學術</td><td>Dipole, Beamformer, sLORETA, dSPM</td></tr>
+          <tr><td>EEGLab</td><td>學術</td><td>Dipole modelling</td></tr>
+          <tr><td>FieldTrip</td><td>學術</td><td>Dipole, Beamformer, MNE</td></tr>
+          <tr><td>LORETA</td><td>學術</td><td>LORETA, sLORETA, eLORETA</td></tr>
+          <tr><td>MNE-Python</td><td>學術</td><td>MNE, dSPM, sLORETA, eLORETA</td></tr>
+          <tr><td>BESA</td><td>商用</td><td>RAP-MUSIC, LORETA, SSLOFO</td></tr>
+          <tr><td>CURRY</td><td>商用</td><td>MUSIC, Beamformer, sLORETA, SWARM</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s-summary" class="section">
+    <div class="section-header"><span class="section-number">10.10</span><h2>本章摘要</h2></div>
+    <ul>
+      <li>腦源定位 = 反向問題，因欠定 + 非均質頭部而本質困難。</li>
+      <li>正向解需要頭模型：球形 → BEM → FEM 越精細越準也越貴。</li>
+      <li>兩大策略：少數 ECD 擬合 vs 多源分布 (LD)。</li>
+      <li>MUSIC 系列用子空間思想搜源；LORETA / sLORETA / FOCUSS 利用平滑或稀疏先驗。</li>
+      <li>LCMV beamforming 是空間濾波器；對源相關性與頭模型誤差敏感，deflation BF 是改良版。</li>
+      <li>貝氏框架可整合 fMRI、解剖、時間平滑等多種先驗；變分貝氏可同時估多參數。</li>
+      <li>機器學習 (DNN) 是新興方向，已能在 ~3.5 mm 級定位單源。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🚀 終點與起點</div>
+      第 10 章是本書「基礎理論」段落的最後一章。接下來章節將進入<strong>應用</strong>：睡眠、癲癇、BCI、AD/MCI、肌電干擾、深度學習等。前 10 章學到的訊號處理工具會在這些應用裡反覆出現。
+    </div>
+  </section>
+
+  <section id="s-quiz">
+    <div id="quiz-host"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">本網頁內容依教學目的整理自 Sanei & Chambers (2022) 第 10 章。</div>
+</footer>
+
+<script src="../assets/js/api.js?v=1"></script>
+<script src="../assets/js/quiz-engine.js?v=1"></script>
+<script src="../assets/data/chapter10-questions.js?v=1"></script>
+<script src="../assets/js/chapter10.js?v=1"></script>
+</body>
+</html>

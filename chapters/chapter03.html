@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第三章 — EEG 訊號建模 | EEG Signal Processing 互動教材</title>
+<meta name="description" content="EEG Signal Processing and Machine Learning, 2nd Edition — Chapter 3 EEG Signal Modelling 互動式教學：Hodgkin-Huxley、Morris-Lecar、AR、Prony、GMM 與電子電路模型。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css?v=1">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html" class="site-logo">
+      <svg class="site-logo-icon" viewBox="0 0 32 32" fill="none">
+        <path d="M2 16 Q5 6 9 16 T16 16 T23 16 T30 16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+      </svg>
+      EEG 互動教材
+    </a>
+    <nav class="site-nav">
+      <a href="#s-overview">概覽</a>
+      <a href="#s-intro">3.1 引言</a>
+      <a href="#s-physio">3.2 生理模型</a>
+      <a href="#s-generate">3.3 EEG 產生</a>
+      <a href="#s-math">3.4 數學模型</a>
+      <a href="#s-elec">3.5 電子模型</a>
+      <a href="#s-dynamic">3.6 動態閾值</a>
+      <a href="#s-summary">3.7 摘要</a>
+      <a href="#s-quiz">📝 測驗</a>
+    </nav>
+  </div>
+</header>
+
+<section class="chapter-hero">
+  <div class="chapter-hero-inner">
+    <span class="chapter-tag">CHAPTER 03</span>
+    <h1 class="chapter-title">EEG Signal Modelling</h1>
+    <p class="chapter-subtitle">EEG 訊號建模：從 Hodgkin-Huxley 微分方程，到 AR / Prony / GMM，再到電子電路模型</p>
+    <div class="chapter-objectives">
+      <h3>🎯 本章學習目標</h3>
+      <ul>
+        <li>了解神經元為什麼可視為「訊號轉換器」與「all-or-none」的閾值裝置。</li>
+        <li>掌握 Integrate-and-Fire、Phase-Coupled、Hodgkin-Huxley、Morris-Lecar 四大生理模型的核心想法與差異。</li>
+        <li>能畫出 Hodgkin-Huxley 模型的等效電路，並說明 INa、IK、Ileak、Cm 的角色。</li>
+        <li>能解釋線性 (AR、ARMA、MVAR、Prony)、非線性 (GARCH) 與 GMM 三類數學模型的目的與差異。</li>
+        <li>了解 Lewis、Roy、Harmon 電子模型如何把生理方程式變成可實作電路。</li>
+        <li>知道何時要選用「生理模型」、何時要選用「資料驅動模型」、何時要用「混合模型」。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<main class="page">
+
+  <!-- ===== 概覽 ===== -->
+  <section id="s-overview" class="section">
+    <div class="section-header"><span class="section-number">OVERVIEW</span><h2>本章地圖</h2></div>
+    <p>第 1、2 章告訴我們 EEG 訊號的<strong>來源</strong>與<strong>形態</strong>。第 3 章把 EEG 當作一個「<strong>系統的輸出</strong>」，問三個問題：</p>
+    <div class="callout key">
+      <div class="callout-title">🧭 三條建模軸</div>
+      <ol style="margin:6px 0;">
+        <li><strong>由下而上（生理模型）：</strong>從離子通道、單一神經元、神經元群體推到 EEG。代表：Hodgkin-Huxley、Morris-Lecar、Jansen-Rit、LEM。</li>
+        <li><strong>由上而下（資料模型）：</strong>直接用統計訊號處理方法刻劃 EEG。代表：AR/ARMA/MVAR、Prony、GARCH、GMM。</li>
+        <li><strong>硬體實作（電子模型）：</strong>把方程式變成 RC + op-amp + transistor 電路。代表：Lewis、Roy、Harmon。</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ===== 3.1 引言 ===== -->
+  <section id="s-intro" class="section">
+    <div class="section-header"><span class="section-number">3.1</span><h2>引言 — 神經元作為訊號轉換器</h2></div>
+    <p>EEG 訊號是<strong>所有相關神經元電化學活動的非線性加總</strong>。要把這個過程精準寫出方程式幾乎不可能，但自 1950 年代起，學者陸續提出了不同尺度的模型。</p>
+    <p>關鍵直覺：神經元接收輸入 spike → 沿樹突累積 → 超過閾值 → 由 soma/axon 產生輸出 spike → 經突觸傳到下一個神經元。</p>
+    <ul>
+      <li><strong>All-or-none：</strong>沒到閾值就不發；超過閾值就發出固定振幅 (~100 mV) 的 AP。</li>
+      <li><strong>不反應期 (Refractory Period)：</strong>剛發完 AP 的一小段時間內無法再發，限制最高頻率並確保單向傳遞。</li>
+      <li><strong>每個 AP 是一群輸入 spike 的「積分」結果。</strong>所以神經元像帶閾值的累加器。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 3.2 生理模型 ===== -->
+  <section id="s-physio" class="section">
+    <div class="section-header"><span class="section-number">3.2</span><h2>生理模型：從神經元到群體</h2></div>
+
+    <h3>3.2.1 Integrate-and-Fire 模型</h3>
+    <p>把神經元簡化成「會積分、超過閾值就重置」的單元。兩顆神經元的 IF 模型方程式：</p>
+    <div class="callout info">
+      dxᵢ/dt = ξ − xᵢ + Eᵢ(t)
+      <br>
+      <small style="color:#475569;">當 xᵢ 達到 1 時 fire，並把 xᵢ 重置為 0；ξ &gt; 1 是常數；Eᵢ(t) 是來自其他神經元的突觸輸入。</small>
+    </div>
+    <p>如果一個 spike 進來，Eᵢ(t) 被加上 Eₛ(t-tⱼ) = g α² t e^(-αt)。其中 g、α 分別代表突觸強度與快慢。<strong>白話：神經元是會漏電的水桶；spike 一進來水位上升，達到頂就溢出（fire）並倒空。</strong></p>
+
+    <h3>3.2.2 Phase-Coupled 模型（WCO）</h3>
+    <p>大腦各區域之間用「相位同步」來通訊。<strong>Weakly Coupled Oscillator (WCO)</strong> 假設每個腦區是一個振盪器，彼此用「相位差」相互拉動。</p>
+    <ul>
+      <li>觀察例子：γ band 同步發生在視覺皮質遠距區域的輪廓偵測；β band 同步發生在頂顳區的多模物體辨識；θ band 同步發生在海馬-前額在空間記憶任務中。</li>
+      <li>用<strong>動態因果模型 (DCM)</strong> 配 WCO 對 EEG/MEG 做貝氏比較，就能推論「誰拉誰」的網路結構。</li>
+      <li>非平穩性以「相位是時間的函數」直接被吸收進方程式。</li>
+    </ul>
+
+    <h3>3.2.3 Hodgkin–Huxley 模型（諾貝爾獎級經典）</h3>
+    <p>1952 年 Hodgkin 與 Huxley 用<strong>四條常微分方程式</strong>定量描述烏賊巨大軸突的 AP，並奠定整個神經電生理的數理基礎。</p>
+    <div class="callout key">
+      <div class="callout-title">⚡ HH 模型核心想法</div>
+      把細胞膜看成一個<strong>並聯電路</strong>：膜電容 (Cm)、三條離子通道（Na⁺、K⁺、Leak）各有自己的電導 g 與反電位 E。
+      <br>I_memb = Cm · dE/dt + I_Na + I_K + I_leak
+      <br>I_Na = g_Na · a³_Na · h_Na · (E − E_Na)
+      <br>I_K  = g_K  · a⁴_K  · (E − E_K)
+      <br>I_leak = g_leak · (E − E_leak)
+    </div>
+    <p>a、h 是 0~1 之間的「閘門變數」，受 E 影響、且各自有時間常數 τ。Na⁺ 通道是<strong>快開快關（h 會關掉它）</strong>；K⁺ 通道是<strong>緩慢開、緩慢關</strong>，造成 repolarization 與 hyperpolarization。</p>
+
+    <h3>🧪 互動：Hodgkin–Huxley AP 視覺化</h3>
+    <div class="interactive">
+      <div class="interactive-title">▶ 看一次 AP 中四條微分方程式如何協作</div>
+      <div class="svg-figure" style="padding:8px;">
+        <svg id="hh-plot" viewBox="0 0 720 360" style="width:100%;max-width:780px;"></svg>
+        <div class="svg-caption">上：膜電位 E(t)；下：閘門變數 m（Na 活化）、h（Na 不活化）、n（K 活化）</div>
+      </div>
+      <div class="interactive-controls">
+        <button id="hh-play"  class="btn">▶ 播放</button>
+        <button id="hh-reset" class="btn secondary">↺ 重置</button>
+        <label style="font-size:13px;color:#475569;">時間：</label>
+        <input id="hh-slider" type="range" min="0" max="10" step="0.05" value="0" style="flex:1;min-width:160px;">
+      </div>
+      <div id="hh-desc" class="callout info" style="margin-top:14px;"></div>
+    </div>
+
+    <h3>3.2.4 Morris–Lecar 模型 — HH 的簡化版</h3>
+    <p>Morris–Lecar 把 HH 模型再精簡：只保留<strong>鈣 (Ca²⁺)、鉀 (K⁺)、leak</strong> 三條電流，用兩條 ODE（膜電位 E 與 K⁺ 活化變數 wₖ）就能模擬單一 AP。原為描述<strong>藤壺肌細胞</strong>。</p>
+    <div class="callout info">
+      C·dE/dt = Iᵢ − g_Ca · a_Ca(E)·(E−E_Ca) − g_K · wₖ · (E−E_K) − g_l(E−E_l)
+      <br>dwₖ/dt = λ_t · [w∞(E) − wₖ] / τₖ(E)
+    </div>
+    <p>w∞(E) 是 S 型曲線（穩態活化）、τₖ(E) 是鐘型曲線（時間常數）。Ca²⁺ 電流被視為瞬時穩態，類似 HH 中 Na⁺ 的「快」角色。</p>
+    <p><strong>Bursting 行為：</strong>改變最大時間常數與輸入電流，就能讓 ML 模型表現出「一段集中放電 + 一段安靜」的爆發行為，對應許多無脊椎動物與哺乳類的爆發神經元。</p>
+
+    <h3>四個生理模型的快速比較</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>Integrate-and-Fire</h4>
+        <div>最簡單；積分+閾值+重置</div>
+        <div class="pros">運算極快、適合大型網路</div>
+        <div class="cons">不描述 AP 形狀</div>
+      </div>
+      <div class="compare-card">
+        <h4>Phase-Coupled (WCO)</h4>
+        <div>只追相位，不追振幅</div>
+        <div class="pros">適合「腦區同步」研究</div>
+        <div class="cons">需弱耦合假設</div>
+      </div>
+      <div class="compare-card">
+        <h4>Hodgkin–Huxley</h4>
+        <div>最詳細的離子通道模型</div>
+        <div class="pros">AP 形狀準確</div>
+        <div class="cons">4 條 ODE、運算重</div>
+      </div>
+      <div class="compare-card">
+        <h4>Morris–Lecar</h4>
+        <div>HH 簡化版（2D）</div>
+        <div class="pros">可分析動力學（相平面）</div>
+        <div class="cons">省略 Na 通道細節</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 3.3 EEG 產生 ===== -->
+  <section id="s-generate" class="section">
+    <div class="section-header"><span class="section-number">3.3</span><h2>由神經元群體產生 EEG 訊號</h2></div>
+    <p>單一神經元的微分方程不能直接拿來產生 EEG（EEG 是大量神經元的同步加總）。常用的群體 (population) 模型有：</p>
+    <ul>
+      <li><strong>LEM (Local EEG Model)：</strong>由 Lopes da Silva、Wilson & Cowan 等人提出。包含「興奮性神經元」與「抑制性神經元」兩個族群，互相回饋；輸入是白雜訊 p(t)，輸出就是 EEG。</li>
+      <li><strong>Jansen–Rit 模型：</strong>1995 年提出，把皮質柱模擬成<strong>錐體細胞 + 局部抑制 + 局部興奮</strong>三族群。耦合兩個 Jansen-Rit 模型還能模擬空間 α/β 活動與誘發電位 (EP)。</li>
+    </ul>
+
+    <div class="callout key">
+      <div class="callout-title">🔁 共通結構</div>
+      <ol style="margin:6px 0;">
+        <li>把<strong>輸入 spike 密度</strong>透過線性濾波器 hₑ(t) 或 hᵢ(t) 變成<strong>突觸後膜電位 (PSP)</strong>。</li>
+        <li>透過<strong>非線性 (sigmoid)</strong> 把膜電位變回 spike 密度。</li>
+        <li>讓興奮、抑制族群形成<strong>回饋環</strong>。</li>
+        <li>調整 Cᵢ 參數與 sigmoid 形狀就能模擬 α、β、δ、θ、γ 與異常 EEG。</li>
+      </ol>
+    </div>
+
+    <h3>每個 PSP 用「兩條指數差」描述</h3>
+    <p>實務上每個突觸後電位常用 difference of exponentials：</p>
+    <p style="background:#f1f5f9;padding:10px;border-radius:6px;font-family:Inter,monospace;">
+      hₑ(t) = A · [exp(−a₁ t) − exp(−a₂ t)]<br>
+      hᵢ(t) = B · [exp(−b₁ t) − exp(−b₂ t)]
+    </p>
+    <p>A、B、a、b 控制振幅與快慢；fₑ、fᵢ 是 spike-generating 的 sigmoid 非線性函式。</p>
+  </section>
+
+  <!-- ===== 3.4 數學模型 ===== -->
+  <section id="s-math" class="section">
+    <div class="section-header"><span class="section-number">3.4</span><h2>數學模型 — 直接從 EEG 資料學</h2></div>
+
+    <h3>3.4.1 線性模型</h3>
+    <p>用一組統計參數刻劃單一或多通道訊號的時間/空間相關性。內外部雜訊通常視為與腦訊號獨立的不相關時間訊號。</p>
+
+    <h4>(a) AR / ARMA Prediction</h4>
+    <p>把每一個 EEG 樣本寫成過去樣本的線性組合：</p>
+    <p style="background:#f1f5f9;padding:10px;border-radius:6px;font-family:Inter,monospace;">
+      y[n] = − Σₖ aₖ · y[n−k] + x[n]
+    </p>
+    <p>x[n] 是雜訊輸入。如果再加上 q 個過去輸入項就是 ARMA。模型階數 p、q 可用<strong>Akaike 資訊準則 (AIC)</strong> 自動選。</p>
+    <ul>
+      <li>單通道 AR → 多通道 <strong>MVAR</strong>（每通道也用其他通道的過去推自己）。</li>
+      <li>MVAR 系數常用 <strong>Levinson–Wiggins–Robinson (LWR)</strong> 演算法估。</li>
+      <li>MVAR 可衍生 <strong>DTF（Directed Transfer Function）</strong>，量化 EEG 內訊號傳遞方向（第 4 章再深入）。</li>
+    </ul>
+
+    <h4>(b) Prony's Method（指數模型）</h4>
+    <p>把訊號當成「阻尼正弦的和」：y(n) = Σ Aₖ · exp((αₖ + j 2π fₖ) Ts · n + jθₖ)。用 AR 求極點，再從極點的<strong>輻角讀出頻率、半徑讀出阻尼</strong>。常用於誘發電位 (AEP, VEP) 建模。雜訊若是白雜訊還可以；非白雜訊時表現會變差。</p>
+
+    <h3>3.4.2 非線性模型 — GARCH 家族</h3>
+    <p>原本用在<strong>金融波動率預測</strong>（2003 諾貝爾經濟學獎）。基本想法：當下殘差的條件變異數是過去殘差與過去變異數的加權和。GARCH(p, q) 寫成：</p>
+    <p style="background:#f1f5f9;padding:10px;border-radius:6px;font-family:Inter,monospace;">
+      σ²[n] = α₀ + Σⱼ αⱼ σ²[n−j] (q 項) + Σⱼ βⱼ σ²[n−j] (p 項)
+    </p>
+    <p>EGARCH、GJR-GARCH、TGARCH、APGARCH、QGARCH 等變形能處理「正/負衝擊不對稱」「銳尖過渡」等情境。應用於 EEG 仍在研究階段，需配合腦疾病造成的變化做客製化。</p>
+
+    <h3>3.4.3 高斯混合模型 (Gaussian Mixture Model, GMM)</h3>
+    <p>不再用 AR 公式，而是用一群<strong>不同平均、不同變異的高斯分布</strong>加權疊加，直接描述訊號樣本的分布：</p>
+    <p style="background:#f1f5f9;padding:10px;border-radius:6px;font-family:Inter,monospace;">
+      p(x | θ) = Σₖ wₖ · 𝒩(x ; μₖ, σₖ)
+    </p>
+
+    <div class="interactive">
+      <div class="interactive-title">🎚️ 互動：拉動滑桿改變 GMM 三個高斯分量的權重</div>
+      <div class="svg-figure" style="padding:8px;">
+        <svg id="gmm-plot" viewBox="0 0 720 220" style="width:100%;max-width:780px;background:#fafbff;border-radius:8px;"></svg>
+        <div class="svg-caption">紅、藍、綠三條虛線為三個高斯分量；粗黑線為加權後的總和分布。</div>
+      </div>
+      <div class="interactive-controls" style="flex-direction:column;align-items:stretch;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="width:80px;color:#dc2626;">w₁（左峰）</span>
+          <input id="gmm-w1" type="range" min="0" max="100" value="40" style="flex:1;">
+          <span id="gmm-w1-v" style="width:36px;text-align:right;">0.40</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="width:80px;color:#2563eb;">w₂（中峰）</span>
+          <input id="gmm-w2" type="range" min="0" max="100" value="30" style="flex:1;">
+          <span id="gmm-w2-v" style="width:36px;text-align:right;">0.30</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="width:80px;color:#16a34a;">w₃（右峰）</span>
+          <input id="gmm-w3" type="range" min="0" max="100" value="30" style="flex:1;">
+          <span id="gmm-w3-v" style="width:36px;text-align:right;">0.30</span>
+        </div>
+      </div>
+      <div class="callout info" style="margin-top:14px;">
+        <strong>應用：</strong>GMM 可建模 EEG、EOG、EMG、ECG 等生理訊號的分布，也廣泛用於 MRI 影像分割、Bayesian GMM 用於 EEG 部分通道的同步性偵測。
+      </div>
+    </div>
+
+    <p>參數常用 <strong>EM (Expectation-Maximization)</strong> 演算法估；可能會碰到「變異塌縮」「樣本太少」「重複資料」等難題，需要正則化或先驗。AIC 也能估混合數 K。</p>
+  </section>
+
+  <!-- ===== 3.5 電子模型 ===== -->
+  <section id="s-elec" class="section">
+    <div class="section-header"><span class="section-number">3.5</span><h2>電子模型 — 把方程式變成電路</h2></div>
+    <p>HH 模型可以直接做成電路：膜電容是<strong>電容</strong>，離子通道是<strong>可變電阻 (FET 或主動濾波器)</strong>，反電位是<strong>電池</strong>。</p>
+
+    <h3>3.5.1 膜模型</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>Lewis 膜模型 (1968)</h4>
+        <div>用主動濾波器實現 Na、K 電導；把生物膜電壓乘 100 以對應電子電路範圍。</div>
+        <div class="pros">可任意調整 g_Na、g_K、τₕ、τₘ、τₙ 等參數</div>
+        <div class="cons">仍是大型電路</div>
+      </div>
+      <div class="compare-card">
+        <h4>Roy 膜模型</h4>
+        <div>用 FET + op-amp + RC 組合模擬電導；目標是「簡單」而非「精準 HH」。</div>
+        <div class="pros">電路精簡</div>
+        <div class="cons">準確度不如 Lewis</div>
+      </div>
+    </div>
+
+    <h3>3.5.2 神經元模型</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>Lewis 神經元 (簡化版)</h4>
+        <div>把興奮 + 抑制突觸 + HH 動作脈衝合成單個神經元電路（簡化自 46 顆電晶體的版本）。</div>
+        <div class="pros">可用作神經網路單元</div>
+        <div class="cons">仍需多顆運算放大器</div>
+      </div>
+      <div class="compare-card">
+        <h4>Harmon 神經元</h4>
+        <div>更精簡：5 個興奮輸入電容、電壓累積到 ~1.5 V 時觸發單穩態多諧振盪器 (T1, T2) 產生 AP，T3、T4 放大輸出。</div>
+        <div class="pros">超簡單、可串聯多顆</div>
+        <div class="cons">行為近似而非精準</div>
+      </div>
+    </div>
+
+    <h3>3.5.3 軸突傳遞模型</h3>
+    <p>Lewis 把 6 段膜元件用 axial 電阻串接，模擬<strong>線性 core-conductor 模型</strong>。每段都會自己產生近似 AP，整體看就像沿著軸突傳遞的 spike。</p>
+
+    <h3>3.5.4 積體電路 (IC) 實作</h3>
+    <p>1991 年 Mahowald & Douglas 用 CMOS VLSI 實作神經元，模擬新皮質神經元 spike。功耗僅 60 μW、面積 &lt; 0.1 mm²，估計 1 cm² 可整合 100–200 顆。為現代 <strong>neuromorphic computing</strong>（IBM TrueNorth、Intel Loihi）奠基。</p>
+  </section>
+
+  <!-- ===== 3.6 動態閾值 ===== -->
+  <section id="s-dynamic" class="section">
+    <div class="section-header"><span class="section-number">3.6</span><h2>AP 閾值的動態建模</h2></div>
+    <p>傳統假設「神經元閾值是常數」，但事實上閾值會被前面 AP 的歷史<strong>非線性影響</strong>（fired 過會抬高一陣子，又會慢慢回落）。改用「動態閾值」之後，spike train 的時間轉換更接近真實生理。</p>
+    <div class="callout tip">
+      <div class="callout-title">💡 為何重要？</div>
+      把 IF 模型加上動態閾值，就能解釋為什麼同樣大小的輸入，有時神經元會 fire、有時不會。對 BCI 解碼、神經調控、藥物效應建模都很關鍵。
+    </div>
+  </section>
+
+  <!-- ===== 3.7 摘要 ===== -->
+  <section id="s-summary" class="section">
+    <div class="section-header"><span class="section-number">3.7</span><h2>本章摘要</h2></div>
+    <ul>
+      <li>EEG 建模有三條軸：<strong>生理（HH/ML/IF/WCO）、資料（AR/Prony/GARCH/GMM）、電子（Lewis/Roy/Harmon）</strong>。</li>
+      <li><strong>Hodgkin-Huxley</strong> 是經典且最精確的離子通道模型（4 個 ODE），仍是所有後續神經元模型的基礎。</li>
+      <li><strong>Morris-Lecar</strong> 用 Ca²⁺ + K⁺ 兩維把 HH 簡化，方便做相平面分析與爆發行為研究。</li>
+      <li>EEG 整體訊號常用「興奮族群 + 抑制族群 + 回饋環」的群體模型（Jansen-Rit、LEM）。</li>
+      <li>線性 AR/MVAR 是 EEG 訊號分析的主力；非線性 GARCH 仍在探索；GMM 善於描述分布、可做事件相關電位偵測。</li>
+      <li>電子模型把方程式變成可實作電路，CMOS VLSI 進一步通往神經形態運算。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🚀 下一步</div>
+      第 4 章進入「<strong>EEG 訊號處理基礎</strong>」：非線性、非平穩性、Wavelet、Wigner-Ville、EMD、MVAR/DTF、PCA/SVD…幾乎每個工具都會出現。
+    </div>
+  </section>
+
+  <section id="s-quiz">
+    <div id="quiz-host"></div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">本網頁內容依教學目的整理自 Sanei & Chambers (2022) 第 3 章。</div>
+</footer>
+
+<script src="../assets/js/api.js?v=1"></script>
+<script src="../assets/js/quiz-engine.js?v=1"></script>
+<script src="../assets/data/chapter03-questions.js?v=1"></script>
+<script src="../assets/js/chapter03.js?v=1"></script>
+</body>
+</html>

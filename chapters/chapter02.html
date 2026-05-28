@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第二章 — EEG 波形 | EEG Signal Processing 互動教材</title>
+<meta name="description" content="EEG Signal Processing and Machine Learning, 2nd Edition — Chapter 2 EEG Waveforms 互動式教學：腦節律、10-20 電極、睡眠、疲勞、情緒與疾病。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css?v=1">
+</head>
+<body>
+
+<!-- ===== 上方導覽 ===== -->
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html" class="site-logo">
+      <svg class="site-logo-icon" viewBox="0 0 32 32" fill="none">
+        <path d="M2 16 Q5 6 9 16 T16 16 T23 16 T30 16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+      </svg>
+      EEG 互動教材
+    </a>
+    <nav class="site-nav">
+      <a href="#s-overview">概覽</a>
+      <a href="#s-rhythms">2.1 腦節律</a>
+      <a href="#s-recording">2.2 量測</a>
+      <a href="#s-sleep">2.3 睡眠</a>
+      <a href="#s-fatigue">2.4 疲勞</a>
+      <a href="#s-emotion">2.5 情緒</a>
+      <a href="#s-neurodev">2.6 發展障礙</a>
+      <a href="#s-abnormal">2.7 異常波形</a>
+      <a href="#s-ageing">2.8 老化</a>
+      <a href="#s-mental">2.9 精神疾病</a>
+      <a href="#s-summary">2.10 摘要</a>
+      <a href="#s-quiz">📝 測驗</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== Hero ===== -->
+<section class="chapter-hero">
+  <div class="chapter-hero-inner">
+    <span class="chapter-tag">CHAPTER 02</span>
+    <h1 class="chapter-title">EEG Waveforms</h1>
+    <p class="chapter-subtitle">腦波形態：從 α/β/θ/δ/γ 五大節律到睡眠、疲勞、情緒與臨床疾病的腦電指紋</p>
+    <div class="chapter-objectives">
+      <h3>🎯 本章學習目標</h3>
+      <ul>
+        <li>能說出 α、β、θ、δ、γ 五大腦節律的頻率範圍、典型出現位置與生理意義。</li>
+        <li>掌握國際 10-20 電極系統的命名規則，並能在頭皮地圖上指認 Fp、F、C、P、O、T 系列電極。</li>
+        <li>了解侵入式（ECoG、Foramen Ovale、Stentrode）與非傳統穿戴式 EEG 系統的差異。</li>
+        <li>能解釋 EEG 訊號調理（放大、Hi-pass、Low-pass、Notch、ADC）的設計原則與常用截止頻率。</li>
+        <li>判讀睡眠、疲勞、情緒與老化在 EEG 上產生的變化。</li>
+        <li>認識 Alzheimer's、CJD、Parkinson's、癲癇等疾病在 EEG 上的特徵指紋。</li>
+        <li>了解藥物（巴比妥、苯二氮平、抗精神病藥）等外在因素對 EEG 波形的影響。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<main class="page">
+
+  <!-- ===== 概覽 ===== -->
+  <section id="s-overview" class="section">
+    <div class="section-header"><span class="section-number">OVERVIEW</span><h2>本章地圖</h2></div>
+    <p>第 1 章我們知道 EEG 是「皮質椎體神經元同步活動」的場電位。這一章把目光放到 <strong>「波形長什麼樣」</strong>。我們會逐一拆解五大節律、量測設備與電極排列、以及不同生理狀態（清醒、睡眠、疲勞、情緒）和疾病在 EEG 上留下的足跡。</p>
+    <div class="callout key">
+      <div class="callout-title">🧭 為什麼要先學波形？</div>
+      所有的訊號處理與機器學習工具，都是為了「把人類肉眼看不到、看不清的 EEG 結構自動找出來」。如果你心裡有一張清晰的「正常／異常波形地圖」，後面學 Wavelet、ICA、CNN 才知道它們究竟在分什麼、抓什麼。
+    </div>
+  </section>
+
+  <!-- ===== 2.1 腦節律 ===== -->
+  <section id="s-rhythms" class="section">
+    <div class="section-header"><span class="section-number">2.1</span><h2>腦節律 (Brain Rhythms)</h2></div>
+    <p>傳統上，醫師是<strong>用眼睛看 EEG</strong> 來判讀疾病的。健康成人在不同狀態（清醒、睡覺、放鬆、專注…）時，EEG 的振幅與頻率會不同；年紀也會改變這些波形。</p>
+    <p>依頻率從低到高，五大腦節律是：<span class="term" data-tip="0.5–4 Hz，深睡與嬰兒">δ delta</span>、<span class="term" data-tip="4–7.5 Hz，思緒朦朧、創意冥想">θ theta</span>、<span class="term" data-tip="8–13 Hz，閉眼放鬆">α alpha</span>、<span class="term" data-tip="14–26 Hz，思考專注">β beta</span>、<span class="term" data-tip="30 Hz 以上，高度刺激">γ gamma</span>。</p>
+
+    <h3>🎛️ 互動：點擊不同節律看波形與說明</h3>
+    <div class="interactive">
+      <div class="interactive-title">🌊 五大腦節律即時切換</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;" id="rhythm-tabs">
+        <button class="btn secondary rhythm-tab" data-rhythm="delta">δ Delta</button>
+        <button class="btn secondary rhythm-tab" data-rhythm="theta">θ Theta</button>
+        <button class="btn rhythm-tab" data-rhythm="alpha">α Alpha</button>
+        <button class="btn secondary rhythm-tab" data-rhythm="beta">β Beta</button>
+        <button class="btn secondary rhythm-tab" data-rhythm="gamma">γ Gamma</button>
+      </div>
+      <div class="svg-figure" style="padding:8px;">
+        <svg id="rhythm-wave" viewBox="0 0 720 200" style="width:100%;max-width:780px;background:#fafbff;border-radius:8px;"></svg>
+        <div class="svg-caption" id="rhythm-caption">點選頂部按鈕切換不同腦節律</div>
+      </div>
+      <div id="rhythm-info" class="callout info" style="margin-top:14px;"></div>
+    </div>
+
+    <h3>各節律的關鍵特徵</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>節律</th><th>頻率</th><th>典型振幅</th><th>主要位置</th><th>生理／臨床意義</th></tr></thead>
+        <tbody>
+          <tr><td><strong>δ Delta</strong></td><td>0.5–4 Hz</td><td>大</td><td>全頭、深層</td><td>深睡、嬰兒；清醒成人若大量出現代表病理。容易被頸/下顎肌肉雜訊混淆。</td></tr>
+          <tr><td><strong>θ Theta</strong></td><td>4–7.5 Hz</td><td>中</td><td>顳葉、丘腦來源</td><td>朦朧、創意、深度冥想；兒童正常但成人清醒時大量出現屬異常。</td></tr>
+          <tr><td><strong>α Alpha</strong></td><td>8–13 Hz</td><td>&lt;50 μV</td><td>後腦勺（枕葉）</td><td>閉眼放鬆時最明顯；睜眼、焦慮、專注會被「阻斷」。Berger 1929 年首次描述。</td></tr>
+          <tr><td><strong>β Beta</strong></td><td>14–26 Hz</td><td>&lt;30 μV</td><td>額葉、中央區</td><td>清醒、專注思考、解決問題；恐慌時非常旺盛。</td></tr>
+          <tr><td><strong>γ Gamma</strong></td><td>&gt;30 Hz（多達 45 Hz）</td><td>低</td><td>額中央區</td><td>振幅小且罕見；事件相關同步 (ERS) 指標，可用於確認某些腦疾病；亦與手指、舌頭運動相關。</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-title">📐 重要數字</div>
+      <ul style="margin:0;">
+        <li>頭皮 EEG 振幅範圍：<strong>10–100 μV</strong></li>
+        <li>皮質直接量測 (ECoG)：<strong>0.5–1.5 mV</strong>，spike 可達數 mV</li>
+        <li>γ 波最高可至 <strong>45 Hz</strong>；動物小腦曾觀察到 200–300 Hz 的高頻活動，但對臨床無實際應用。</li>
+      </ul>
+    </div>
+
+    <h3>其他特殊節律與瞬時波形</h3>
+    <ul>
+      <li><strong>μ Mu 節律：</strong>中央區 Rolandic 區的 α 型節律，跟運動皮質有關；做動作（甚至想像動作）會把它「壓掉」，是 BCI 的重要指標。</li>
+      <li><strong>K-complex、Vertex 波：</strong>睡眠時的尖波。</li>
+      <li><strong>Sleep spindle（σ）：</strong>11–15 Hz 的紡錘狀波形，是睡眠分期重要標記。</li>
+      <li><strong>λ Lambda 波：</strong>清醒做視覺探索時的枕葉尖波，與眼跳 (saccade) 鎖時。</li>
+      <li><strong>φ Phi、κ Kappa、τ Tau、ρ Rho、χ Chi：</strong>不同部位/狀態的少見節律，部分屬偽訊 (artefact)。</li>
+      <li><strong>Breach 節律：</strong>顱骨缺損處出現的 α 型波，不被動作影響。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 2.2 量測 ===== -->
+  <section id="s-recording" class="section">
+    <div class="section-header"><span class="section-number">2.2</span><h2>EEG 記錄與量測</h2></div>
+    <p>取得腦電訊號需要：<strong>電極 → 放大器 → 濾波器 → ADC → 數位儲存 → 顯示／分析</strong>。電極與其阻抗的品質決定整套訊號的上限。</p>
+    <ul>
+      <li>常見電極：Ag-AgCl 圓盤（&lt; 3 mm 直徑）、可拋棄式、可重複使用金/銀/錫盤、頭帶電極帽、鹽水電極、針電極。</li>
+      <li>電極與頭皮的<strong>阻抗應 &lt; 5 kΩ</strong>，且各通道相差 &lt; 1 kΩ。阻抗太高會把真實 EEG 蓋掉。</li>
+      <li>差動模式 (differential) 與參考模式 (referential) 兩種接線法：常見參考點有耳垂 A1/A2、Cz、linked-ears、鼻尖、C7、共同平均參考 (CAR) 等。</li>
+    </ul>
+
+    <h3>2.2.1 國際 10-20 電極系統（互動地圖）</h3>
+    <p>10-20 是國際電生理學會推薦的標準排法（21 個電極，不含耳垂）。命名規則：<strong>字母代表位置，奇數在左、偶數在右、z 代表中線</strong>。電極之間距離為 nasion 到 inion 全長的 10% 或 20%。</p>
+
+    <div class="interactive">
+      <div class="interactive-title">🎯 點擊任一電極查看位置與用途</div>
+      <div class="svg-figure">
+        <svg id="electrode-map" viewBox="0 0 460 460" style="background:#fafbff;border-radius:8px;max-width:520px;"></svg>
+        <div class="svg-caption">10-20 標準 21 電極佈置（俯視；上方為 Nasion 額頭，下方為 Inion 後腦）</div>
+      </div>
+      <div id="electrode-info" class="callout info" style="margin-top:14px;">點擊圖中任一電極查看詳細說明。</div>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-title">💡 命名口訣</div>
+      <ul style="margin:6px 0;">
+        <li><strong>Fp</strong> Frontal pole（額前最前緣）</li>
+        <li><strong>F</strong> Frontal、<strong>C</strong> Central、<strong>P</strong> Parietal、<strong>O</strong> Occipital、<strong>T</strong> Temporal</li>
+        <li><strong>z</strong>（zero）= 中線：Fz、Cz、Pz、Oz</li>
+        <li>數字越大表示離中線越遠（F7 比 F3 更外側）</li>
+        <li>常用對應：<strong>C3/C4</strong>（左右手指運動）、<strong>O1/O2</strong>（視覺）、<strong>F3/F4/P3/P4</strong>（P300 ERP）</li>
+      </ul>
+    </div>
+
+    <h3>2.2.2 非傳統與穿戴式 EEG</h3>
+    <ul>
+      <li><strong>Emotiv（5/14 通道）</strong>等可攜式系統適合 BCI 與消費級研究。</li>
+      <li><strong>GlassEEG：</strong>眼鏡型 EEG，用於即時偵測癲癇發作。</li>
+      <li><strong>EarEEG：</strong>耳道內 EEG，主要用於 SSVEP BCI。</li>
+      <li><strong>Tattooed EEG：</strong>奧地利 Graz 大學開發，像紋身一樣貼在頭皮，超薄超低阻抗。</li>
+    </ul>
+
+    <h3>2.2.3 侵入式紀錄</h3>
+    <p>當頭皮 EEG 解析度不夠用（例如手術前定位癲癇灶）就需要更靠近神經元的方式：</p>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>ECoG / iEEG</h4>
+        <div>把電極陣列直接放在大腦皮質表面。</div>
+        <div class="pros">空間解析度高、訊號乾淨</div>
+        <div class="cons">需開顱手術</div>
+      </div>
+      <div class="compare-card">
+        <h4>Foramen Ovale 電極</h4>
+        <div>從顱骨底部 foramen ovale 孔插入電極，深入海馬迴。</div>
+        <div class="pros">可記錄癲癇深部放電</div>
+        <div class="cons">微創但仍屬侵入式</div>
+      </div>
+      <div class="compare-card">
+        <h4>Stentrode™</h4>
+        <div>直徑 4 mm 的網管支架，從血管送入運動皮質附近。</div>
+        <div class="pros">不開顱、可長期植入</div>
+        <div class="cons">空間覆蓋範圍有限</div>
+      </div>
+    </div>
+
+    <h3>2.2.4 訊號調理（Conditioning）</h3>
+    <p>原始 EEG 振幅僅 μV 等級、頻率可達 300 Hz，因此進入 ADC 前要先放大、濾波。</p>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-body"><strong>放大器 (Amplifier)</strong><small>把 μV 訊號放大上千倍，常用差動放大器抑制共模雜訊。</small></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><strong>高通濾波 (HPF) &lt; 0.5 Hz</strong><small>去除呼吸、體位等慢漂移與直流偏移。</small></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><strong>低通濾波 (LPF) 50–70 Hz</strong><small>去除高頻雜訊與肌電干擾。</small></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-body"><strong>陷波濾波 (Notch) 50/60 Hz</strong><small>對抗電源頻率干擾（台灣 60 Hz 為主，歐洲 50 Hz）。</small></div></div>
+      <div class="step"><div class="step-num">5</div><div class="step-body"><strong>ADC 採樣</strong><small>常用採樣率：100、250、500、1000、2000 Hz；量化 16 bit。</small></div></div>
+      <div class="step"><div class="step-num">6</div><div class="step-body"><strong>儲存與分析</strong><small>多通道、長時段資料量龐大，例如 128 電極×1 小時×500 Hz×16 bit ≈ 0.45 GB。</small></div></div>
+    </div>
+
+    <div class="callout warning">
+      <div class="callout-title">⚠️ 常見偽訊 (Artefacts)</div>
+      <p style="margin:6px 0;">
+        <strong>生理性：</strong>眼動／眨眼 (EOG)、心電 (ECG)、肌電 (EMG)、出汗、吞嚥、頭部移動。
+        <strong>系統性：</strong>50/60 Hz 電源、阻抗變化、電線缺陷、電極脫落、電子雜訊。
+        後續章節會專門講怎麼處理它們（ICA、Wavelet、自適性濾波）。
+      </p>
+    </div>
+  </section>
+
+  <!-- ===== 2.3 睡眠 ===== -->
+  <section id="s-sleep" class="section">
+    <div class="section-header"><span class="section-number">2.3</span><h2>睡眠 EEG</h2></div>
+    <p>正常睡眠時，高頻波會逐漸消失，慢波（δ 波）取而代之，並出現 <strong>spindles</strong> 與 <strong>K-complexes</strong>（從第二期開始延伸到第四期）。最後階段 (REM) 出現快速動眼，並在醒來前結束。整個過程都可從 EEG 自動偵測與分期。</p>
+    <p><strong>常見睡眠障礙：</strong>阻塞性睡眠呼吸中止 (OSA)、失眠 (Insomnia)、REM 行為障礙、晝夜節律失調、非 24 小時睡眠週期、週期性肢動症 (PLMD)、輪班型睡眠障礙、嗜睡症 (Narcolepsy)。</p>
+
+    <div class="callout key">
+      <div class="callout-title">🛏️ 五個睡眠期的 EEG 重點</div>
+      <ul style="margin:6px 0;">
+        <li><strong>清醒：</strong>主要 α 波（閉眼後腦勺），睜眼變 β。</li>
+        <li><strong>N1（昏沉）：</strong>α 漸消、θ 出現。</li>
+        <li><strong>N2：</strong>出現 <strong>spindle</strong>（11–15 Hz 紡錘波）與 <strong>K-complex</strong>。</li>
+        <li><strong>N3（深睡）：</strong>大量 δ 波。</li>
+        <li><strong>REM（快速動眼）：</strong>EEG 反而像清醒，但身體幾乎癱瘓，伴隨眼球快速移動。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 2.4 疲勞 ===== -->
+  <section id="s-fatigue" class="section">
+    <div class="section-header"><span class="section-number">2.4</span><h2>精神疲勞 (Mental Fatigue)</h2></div>
+    <p>精神疲勞多半是長時間認知負擔造成的。研究指出，疲勞主要改變的不是節律本身，而是<strong>腦網路的同步性與連結性</strong>：左右腦半球與不同腦葉之間同步性下降。</p>
+    <ul>
+      <li><strong>ERP 反應變慢、變弱：</strong>P300（特別是 P3b 子成分）振幅降低、潛伏期 (latency) 變長。</li>
+      <li>對音、影像等感官刺激的反應變遲鈍。</li>
+      <li>實際應用：駕駛員／飛行員疲勞偵測，避免昏睡導致事故。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 2.5 情緒 ===== -->
+  <section id="s-emotion" class="section">
+    <div class="section-header"><span class="section-number">2.5</span><h2>情緒 (Emotions)</h2></div>
+    <p>右腦半球與情緒處理關聯最深。情緒激動時，<strong>α 波功率下降</strong>（代表該腦區更活躍），尤其在右半球。</p>
+    <div class="callout info">
+      <div class="callout-title">🧭 Valence Hypothesis</div>
+      <ul style="margin:6px 0;">
+        <li><strong>正向情緒 →</strong> 左前額葉相對活化（左半球 α 下降）</li>
+        <li><strong>負向情緒 →</strong> 右前額葉相對活化（右半球 α 下降）</li>
+        <li>常用情緒辨識特徵：β/θ 功率比、左右半球不對稱性、PSD、微分熵 (DE)、差分不對稱 DASM、有理不對稱 RASM、ASM、差分因果 DCAU。</li>
+        <li>連結度：悲傷會使前額通道之間同步性增加；快樂則前-枕區同步度高但自身較分散。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 2.6 神經發展障礙 ===== -->
+  <section id="s-neurodev" class="section">
+    <div class="section-header"><span class="section-number">2.6</span><h2>神經發展障礙</h2></div>
+    <p>這類疾病自<strong>童年期開始</strong>，影響神經系統發育，造成情緒、學習、自我控制、記憶異常，多半會跟隨患者一生。</p>
+    <ul>
+      <li>注意力不足過動症 (ADHD)</li>
+      <li>自閉症類群障礙 (ASD)</li>
+      <li>學習障礙、智能障礙、行為障礙</li>
+      <li>腦性麻痺 (Cerebral Palsy)、視聽障</li>
+      <li>憂鬱症也可列入此類</li>
+    </ul>
+    <p>近年特別有大量 EEG 研究投入 ADHD、ASD、憂鬱症的客觀辨識；本書後續章節有對應演算法。</p>
+  </section>
+
+  <!-- ===== 2.7 異常 EEG 形態 ===== -->
+  <section id="s-abnormal" class="section">
+    <div class="section-header"><span class="section-number">2.7</span><h2>異常 EEG 形態</h2></div>
+    <p>Sharbrough 把非特異性異常分為三類：</p>
+    <ol>
+      <li><strong>瀰漫間歇性慢波（多在 δ 範圍）：</strong>與腦功能異常有關；成人多在額區、兒童多在枕／後區。常見於腦壓上升、腫瘤、水腦、灰質病變。</li>
+      <li><strong>雙側持續性 EEG：</strong>多與意識障礙有關。雖然成因不一，但搭配病史可協助預後判斷。</li>
+      <li><strong>局部持續性 EEG：</strong>α 節律在某側「失去反應性」（睜眼無法壓掉、心算無法壓掉）可協助定側；最可靠的指標是<strong>持續且非節律的局部 δ 慢波 (PNRD)</strong>。</li>
+    </ol>
+    <p>異常的更進一步辨識需要動態工具，特別是與 <strong>癲癇、SSPE、Creutzfeldt-Jakob disease (CJD)</strong> 等疾病的鑑別診斷。</p>
+  </section>
+
+  <!-- ===== 2.8 老化 ===== -->
+  <section id="s-ageing" class="section">
+    <div class="section-header"><span class="section-number">2.8</span><h2>老化 (Ageing)</h2></div>
+    <p>老化會減少神經元數量，特別影響<strong>額葉與顳葉</strong>，伴隨腦血流減少。EEG 上典型的變化：</p>
+    <ul>
+      <li><strong>α 頻率下降</strong>（最常見的異常），並向額部擴散；阻斷反應減弱。</li>
+      <li>θ 與 δ 雙側性慢波增多，與認知功能下降相關。</li>
+      <li>β 波活動有時增加，可能是早期智能退化的線索。</li>
+      <li>睡眠 EEG：振幅下降、紡錘波延後出現、REM 期變短、睡眠中斷增多。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 2.9 精神疾病 ===== -->
+  <section id="s-mental" class="section">
+    <div class="section-header"><span class="section-number">2.9</span><h2>精神／神經疾病的 EEG 指紋</h2></div>
+
+    <h3>2.9.1 失智症 (Dementia)</h3>
+    <p>分為<strong>皮質型</strong>（Alzheimer's、Pick's、CJD）與<strong>皮質下型</strong>（Parkinson's、Huntington's、常壓水腦、進行性核上性麻痺）。皮質下型對 EEG 影響較小。</p>
+    <div class="callout key">
+      <div class="callout-title">🧠 Alzheimer's Disease (AD) 的 EEG 特徵</div>
+      <ul style="margin:6px 0;">
+        <li>後腦 α 節律「變慢」</li>
+        <li>θ、δ 活動增加</li>
+        <li>β 活動可能下降</li>
+        <li>嚴重時出現癲癇樣放電與三相波</li>
+        <li>頻譜：δ、θ 功率上升；α、β 與平均頻率下降</li>
+      </ul>
+    </div>
+    <p><strong>CJD：</strong>發病約 3 個月後出現「每秒一次」的週期性尖波複合，背景活動下降，是 EEG 高度特異性的指標。</p>
+
+    <h3>2.9.2 癲癇發作 (Epileptic Seizure)</h3>
+    <p>臨床發作通常表現為 EEG 頻率突然改變，多落在 α 頻段並逐漸變慢、振幅增大。發作前可看到「從混沌走向有序」的相位過程。<strong>振幅大小不一定反映嚴重度。</strong></p>
+    <ul>
+      <li><strong>Tonic-clonic（大發作 / Grand mal）：</strong>最常見，6–12 Hz 規律尖波，全電極可見，額部最強。</li>
+      <li><strong>Petit mal：</strong>約 3 Hz 慢尖波複合，前額中線最明顯。</li>
+      <li><strong>Rolandic spikes：</strong>4–10 歲兒童中常見、通常為良性。</li>
+      <li><strong>14 & 6 Hz waves：</strong>睡眠時後顳區出現的弓形波（&lt;75 μV），不算癲癇。</li>
+      <li><strong>SREDA：</strong>老年人中央頂區 4–7 Hz 的成人良性節律放電。</li>
+    </ul>
+    <p>區分癲癇與一般偽訊：癲癇波是<strong>規律且重複的尖波</strong>，偽訊則多為一過性、雜訊樣。ECG QRS 約 1 Hz，與癲癇形態差很多。</p>
+
+    <h3>2.9.3 精神疾病 (Psychiatric Disorders)</h3>
+    <p>DSM（美國精神醫學會診斷手冊）多項疾患都有 EEG 觀察報告，但分析多停留在描述層次。常見涵蓋：</p>
+    <ul>
+      <li>失讀症 (Dyslexia)、自閉、Rett's、Asperger's</li>
+      <li>注意力缺失症 (ADD)、品行障礙、對立反抗、行為障礙</li>
+      <li>譫妄 (Delirium) — EEG 表現：後優勢節律變慢/消失、θ/δ 增多、背景組織度差、對睜閉眼無反應；QEEG 顯示 fast/slow 比下降</li>
+      <li>思覺失調、情感性、焦慮、強迫、進食、人格障礙等</li>
+    </ul>
+
+    <h3>2.9.4 外在影響（藥物等）</h3>
+    <p>很多藥物會明顯改變 EEG：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>藥物類別</th><th>對 EEG 的主要影響</th></tr></thead>
+        <tbody>
+          <tr><td>麻醉藥</td><td>初期快頻 → 深層慢且大振幅 → 終末爆發-抑制 (burst-suppression) → EEG 平直</td></tr>
+          <tr><td>巴比妥 (Barbiturate)</td><td>低劑量增加額部 25–35 Hz；長期使用後突然停用會誘發癲癇與譫妄</td></tr>
+          <tr><td>抗精神病 (Neuroleptics)</td><td>α 增加、β bursts 變短</td></tr>
+          <tr><td>Clozapine</td><td>增加 δ、θ 與 21 Hz 以上 β</td></tr>
+          <tr><td>三環抗鬱劑</td><td>慢／快活動均增加、α 變慢；高劑量可能誘發癲癇</td></tr>
+          <tr><td>鋰鹽 (Lithium)</td><td>β 變慢、廣泛性陣發慢波伴尖波</td></tr>
+          <tr><td>苯二氮平 (Benzodiazepines)</td><td>β 大幅增強、α 振幅下降；停藥後效果可持續 2 週</td></tr>
+          <tr><td>CNS 興奮劑</td><td>α、β 增加、慢波減少</td></tr>
+          <tr><td>Valproic acid（抗癲癇）</td><td>全身性尖波減少甚至消失</td></tr>
+          <tr><td>Lamotrigine</td><td>EEG 整體衰減</td></tr>
+          <tr><td>致幻劑 (LSD、Mescaline)</td><td>振幅下降、慢波被抑制</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== 2.10 摘要 ===== -->
+  <section id="s-summary" class="section">
+    <div class="section-header"><span class="section-number">2.10</span><h2>本章摘要</h2></div>
+    <ul>
+      <li>五大腦節律 (δ/θ/α/β/γ) 依頻率分段，各自反映不同生理／心理狀態。<strong>α 是閉眼放鬆的指紋；γ 與高度刺激／注意有關。</strong></li>
+      <li>國際 10-20 系統是電極排列的標準；命名規則「字母位置 + 奇左偶右 + z 中線」。</li>
+      <li>EEG 訊號需要放大、HPF (&lt; 0.5 Hz)、LPF (50–70 Hz)、Notch (50/60 Hz) 與 ADC，常用採樣率 100–2000 Hz。</li>
+      <li>侵入式 (ECoG、Foramen Ovale、Stentrode) 用於高精度臨床定位或運動意圖解讀。</li>
+      <li>睡眠分期、疲勞偵測、情緒辨識都在 EEG 上留下不同腳印；機器學習愈來愈仰賴它們。</li>
+      <li>Alzheimer's、CJD、Parkinson's、癲癇、譫妄都有獨特的 EEG 指紋；藥物對 EEG 也有顯著影響。</li>
+      <li>下一章將從訊號的<strong>數學模型</strong>角度，理解 EEG 是怎麼產生與被刻劃的。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🚀 下一步</div>
+      第 3 章會看 <strong>EEG Signal Modelling</strong>：Integrate-and-Fire、Hodgkin–Huxley、Morris–Lecar 等生理模型，以及 AR / Prony / GMM 等數學模型。
+    </div>
+  </section>
+
+  <!-- ===== Quiz ===== -->
+  <section id="s-quiz">
+    <div id="quiz-host"></div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">本網頁內容依教學目的整理自 Sanei & Chambers (2022) 第 2 章。</div>
+</footer>
+
+<script src="../assets/js/api.js?v=1"></script>
+<script src="../assets/js/quiz-engine.js?v=1"></script>
+<script src="../assets/data/chapter02-questions.js?v=1"></script>
+<script src="../assets/js/chapter02.js?v=1"></script>
+</body>
+</html>

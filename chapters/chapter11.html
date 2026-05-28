@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十一章 — 癲癇發作的預測、偵測與定位 | EEG Signal Processing 互動教材</title>
+<meta name="description" content="EEG Signal Processing and Machine Learning, 2nd Edition — Chapter 11 Epileptic Seizure Prediction, Detection, and Localization 互動式教學。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css?v=1">
+</head>
+<body>
+
+<!-- ===== 上方導覽 ===== -->
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html" class="site-logo">
+      <svg class="site-logo-icon" viewBox="0 0 32 32" fill="none">
+        <path d="M2 16 Q5 6 9 16 T16 16 T23 16 T30 16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+      </svg>
+      EEG 互動教材
+    </a>
+    <nav class="site-nav">
+      <a href="#s-overview">概覽</a>
+      <a href="#s-intro">11.1 引言</a>
+      <a href="#s-detection">11.2 偵測</a>
+      <a href="#s-chaos">11.3 非線性動力</a>
+      <a href="#s-connectivity">11.4 腦連結</a>
+      <a href="#s-prediction">11.5 預測</a>
+      <a href="#s-localization">11.6 定位</a>
+      <a href="#s-fusion">11.7 EEG-fMRI</a>
+      <a href="#s-summary">11.8 摘要</a>
+      <a href="#s-quiz">📝 測驗</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== Hero ===== -->
+<section class="chapter-hero">
+  <div class="chapter-hero-inner">
+    <span class="chapter-tag">CHAPTER 11</span>
+    <h1 class="chapter-title">Epileptic Seizure Prediction, Detection, and Localization</h1>
+    <p class="chapter-subtitle">癲癇發作的預測、偵測與定位：從腦波辨識到 AI 預警</p>
+    <div class="chapter-objectives">
+      <h3>🎯 本章學習目標</h3>
+      <ul>
+        <li>了解癲癇 (epilepsy) 的本質：神經元異常超同步放電；認識局部 (focal) 與廣泛 (generalized) 發作的差別。</li>
+        <li>分辨「pre-ictal / ictal / inter-ictal / post-ictal」四個時期的腦波特徵。</li>
+        <li>說明常見的偵測流程：濾波 → 特徵擷取（能量、時頻、小波）→ 機器學習分類。</li>
+        <li>理解預測 (prediction) 與偵測 (detection) 的差異，以及預測時窗 (prediction horizon) 的概念。</li>
+        <li>知道高頻振盪 (HFO)、棘波 (spike)、IED 在癲癇病灶定位上的角色。</li>
+        <li>了解難治型癲癇 (drug-resistant epilepsy)、術前評估、深腦電刺激 (DBS) 的應用情境。</li>
+        <li>初步認識 EEG–fMRI 多模態融合在癲癇研究的趨勢。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<main class="page">
+
+  <!-- ===== 概覽 ===== -->
+  <section id="s-overview" class="section">
+    <div class="section-header"><span class="section-number">OVERVIEW</span><h2>本章地圖</h2></div>
+    <p>全球大約有 <strong>5,000 萬人</strong>罹患癲癇，其中約 <strong>25%</strong> 對任何現有療法都沒反應 (drug-resistant epilepsy)。EEG 是癲癇診斷的「金標準」之一：便宜、即時、可長時間連續監測。本章把 EEG 在癲癇上的三大任務 — <strong>偵測 (Detection) / 預測 (Prediction) / 定位 (Localization)</strong> — 完整講一次。</p>
+    <div class="callout key">
+      <div class="callout-title">🧭 一張圖看懂本章</div>
+      癲癇發作其實是「一群皮質神經元突然同步放電」造成的短暫腦功能異常。EEG 看得到這個事件 → 工程師用訊號處理 + 機器學習自動辨識它 → 進階目標是「在發作前幾分鐘」就警告病人。
+    </div>
+  </section>
+
+  <!-- ===== 11.1 引言 ===== -->
+  <section id="s-intro" class="section">
+    <div class="section-header"><span class="section-number">11.1</span><h2>引言 — 癲癇是什麼？</h2></div>
+    <p>古印度 Vedic 時期就有「apasmara（失去意識）」的記載；希臘文 <em>epilambanein</em>（被攫取）演變成今天的「epilepsy」。現代神經科學把它定義為：<strong>大腦某群神經元突然、短暫、過度同步的電氣放電</strong>，導致暫時性的意識、感覺、運動或情緒異常。</p>
+
+    <h3>關鍵數字（一定要記）</h3>
+    <div class="callout key">
+      <ul style="margin:0;">
+        <li>全球患者：約 <strong>50 million</strong>（35 million 沒得到適當治療）</li>
+        <li>新確診孩童 / 成人經藥物可控制者：<strong>70–80%</strong></li>
+        <li>對藥物無效的「難治型」：<strong>~25%</strong></li>
+        <li>EEG 取樣率常用：<strong>200–500 Hz</strong>（書中圖示用 200 samples/sec）</li>
+      </ul>
+    </div>
+
+    <h3>發作的分類</h3>
+    <p>臨床上以「放電是否擴散到整個皮質」分成兩大類：</p>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>局部 / 部分發作 Partial (Focal)</h4>
+        <div class="pros">放電源限於皮質某一小區（epileptic focus）</div>
+        <div class="pros">simple partial：意識未失；complex partial：意識改變</div>
+        <div class="cons">EEG 上不容易肉眼分辨</div>
+        <div class="cons">可能「續發性廣泛化」傳至全腦</div>
+      </div>
+      <div class="compare-card">
+        <h4>廣泛性發作 Generalized</h4>
+        <div class="pros">放電瞬間擴及整個皮質</div>
+        <div class="pros">包含 absence（petit mal）、tonic-clonic（grand mal）、myoclonic、atonic</div>
+        <div class="cons">通常伴隨明顯意識喪失或抽搐</div>
+        <div class="cons">EEG 振幅大、肉眼可見</div>
+      </div>
+    </div>
+
+    <h3>🩺 一次發作的四個時期（互動切換）</h3>
+    <p>臨床醫師喜歡把 EEG 切成四個階段觀察，<strong>點下方按鈕切換</strong>，看每個時期的腦波示意圖：</p>
+
+    <div class="interactive">
+      <div class="interactive-title">🧠 Inter-ictal → Pre-ictal → Ictal → Post-ictal</div>
+      <div class="interactive-controls">
+        <button class="btn"        data-phase="inter">① 間發期 Inter-ictal</button>
+        <button class="btn"        data-phase="pre">② 發作前 Pre-ictal</button>
+        <button class="btn"        data-phase="ictal">③ 發作中 Ictal</button>
+        <button class="btn"        data-phase="post">④ 發作後 Post-ictal</button>
+      </div>
+      <div class="svg-figure" style="margin-top:12px;">
+        <svg id="phase-wave" viewBox="0 0 720 200" style="width:100%;max-width:760px;background:#fafbff;border-radius:8px;"></svg>
+        <div class="svg-caption">藍色為當前時期 EEG 模式（示意），紅色虛線標出 ictal onset</div>
+      </div>
+      <div id="phase-desc" class="callout info" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-title">💡 白話比喻：放電像「煙火秀」</div>
+      <p style="margin:6px 0;">把一群神經元想像成觀眾鼓掌：平常聲音雜亂（inter-ictal）；當有人開始帶頭打拍子，越來越多人加入（pre-ictal）；最後全場同步爆出震耳的掌聲（ictal）；結束後大家都累癱了，全場安靜（post-ictal）。EEG 上對應的就是「振幅突然變大、頻率變規律」。</p>
+    </div>
+  </section>
+
+  <!-- ===== 11.2 偵測 ===== -->
+  <section id="s-detection" class="section">
+    <div class="section-header"><span class="section-number">11.2</span><h2>癲癇發作的偵測 (Seizure Detection)</h2></div>
+    <p>「偵測」與「預測」最大的不同：<strong>偵測是發作『正在發生』時即時辨識它</strong>，預測是發作前就警告。偵測對手術監控、ICU 看護尤其重要。</p>
+
+    <h3>典型偵測流程（兩階段）</h3>
+    <div class="interactive">
+      <div class="interactive-title">🔬 EEG 自動偵測流程圖（點方塊查看細節）</div>
+      <div class="svg-figure">
+        <svg id="det-flow" viewBox="0 0 760 180" style="width:100%;max-width:780px;background:#fafbff;border-radius:8px;"></svg>
+        <div class="svg-caption">六個方塊代表典型流程；點擊任一方塊顯示說明。</div>
+      </div>
+      <div id="det-flow-desc" class="callout info" style="margin-top:12px;"></div>
+    </div>
+
+    <h3>常用的特徵</h3>
+    <ul>
+      <li><strong>能量 (energy)</strong>：發作期 EEG 振幅變大，平均能量上升。窗內能量 E(n) = (1/L) Σ x²(n) 是最簡單的指標。</li>
+      <li><strong>時頻分析 (TF)</strong>：因為 EEG 為非穩態 (nonstationary)，常用 <span class="term" data-tip="Discrete Wavelet Transform 離散小波轉換&#10;比 STFT 更能同時保留時間與頻率細節">DWT</span>、STFT、Wigner–Ville 等把訊號展到時間–頻率平面。</li>
+      <li><strong>頻段比 (frequency band ratios)</strong>：例如 Osorio 演算法計算 8–42 Hz 區間能量在「短窗 (2 秒)」與「長窗 (~30 分)」的比值，比值衝高就警告。</li>
+      <li><strong>非線性動力 (nonlinear)</strong>：Lyapunov 指數、相關維度 (correlation dimension)、Kolmogorov entropy 等量化 EEG 的混沌度。</li>
+      <li><strong>連結性 (connectivity)</strong>：通道間的同步度、phase-slope index (PSI)。</li>
+    </ul>
+
+    <h3>機器學習分類器演化</h3>
+    <ol>
+      <li>1970–90 年代：規則式系統 (Gotman 等)、簡單模板比對；多通道版本可達 ~67% 偵測率。</li>
+      <li>1990–2010：人工神經網路 (ANN)、Kohonen SOM、SVM。Subasi (2005) 把 DWT 特徵丟給 ANN，<strong>成人癲癇偵測 &gt; 80%</strong>。</li>
+      <li>2010 之後：CNN/RNN/Bi-LSTM 等深度學習。Boonyakitanont 等 (2020) 用 CNN 在 CHB-MIT 兒童頭皮 EEG 資料庫 (24 個案) 達 <strong>&gt; 90% accuracy</strong>。</li>
+    </ol>
+
+    <div class="callout warning">
+      <div class="callout-title">⚠️ 新生兒癲癇仍是難題</div>
+      新生兒的 EEG 模式變化大、雜訊多、發作型態與成人不同；目前演算法的 <strong>誤警率仍偏高</strong>，可靠的新生兒偵測系統至今仍是開放問題。
+    </div>
+  </section>
+
+  <!-- ===== 11.3 非線性動力 ===== -->
+  <section id="s-chaos" class="section">
+    <div class="section-header"><span class="section-number">11.3</span><h2>癲癇 EEG 的混沌行為</h2></div>
+    <p>把大腦看成一個<strong>非線性動力系統</strong>，發作前後的「混沌度」會變。最常用的量化指標是 <strong>最大 Lyapunov 指數 (LLE, λ₁)</strong>：</p>
+    <ul>
+      <li>數學定義：兩條相鄰軌跡在相空間中分離的速度，d(n) = d₀·exp(λ₁·n)。</li>
+      <li>若 λ₁ &gt; 0 → 系統為混沌；λ₁ 越大代表越混沌。</li>
+      <li>因 EEG 非穩態，實際用 <strong>短時 LLE (STLmax)</strong>，由 Iasemidis 等修改 Wolf 演算法而得。</li>
+    </ul>
+    <div class="callout info">
+      <div class="callout-title">📌 重要觀察 (Iasemidis et al.)</div>
+      在 temporal lobe epilepsy (TLE) 患者：<strong>發作前數分鐘到數小時，多個皮質區的 STLmax 會「漸進收斂」到相似值</strong>，稱為「dynamical entrainment（動力夾合）」。這是癲癇<strong>可預測</strong>的關鍵證據。
+    </div>
+    <p>除了 LLE，常用的還有：</p>
+    <ul>
+      <li><strong>Correlation dimension</strong> (Lerner)：ictal 狀態下落在 2–3 區間，代表「低維吸子」。</li>
+      <li><strong>Kolmogorov entropy</strong>、phase-space dissimilarity measure (PSDM)。</li>
+      <li>由於 scalp EEG 受顱骨衰減與雜訊干擾，常先以 <strong>BSS 盲源分離</strong>還原近似 iEEG 的源訊號再算 LLE。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 11.4 連結性 ===== -->
+  <section id="s-connectivity" class="section">
+    <div class="section-header"><span class="section-number">11.4</span><h2>從腦連結性偵測癲癇</h2></div>
+    <p>除了「單一通道」的能量或混沌度，<strong>通道間的相位/同步關係</strong>也提供重要資訊。書中介紹的代表方法：</p>
+    <ul>
+      <li><strong>Phase-Slope Index (PSI)</strong>：spectral coherency 的虛部標準化版本，量化通道間的「方向性影響」。</li>
+      <li>把 PSI 套到 multi-channel ECoG，把「通道間互動強度」高過閾值的時段標為 seizure。</li>
+      <li>閾值用「最近活動的移動平均」當作 baseline，能適應病人個體差異與時間漂移。</li>
+    </ul>
+    <p>這類「連結度方法」可看到單通道方法看不到的「整體腦網狀態切換」。</p>
+  </section>
+
+  <!-- ===== 11.5 預測 ===== -->
+  <section id="s-prediction" class="section">
+    <div class="section-header"><span class="section-number">11.5</span><h2>癲癇發作的預測 (Prediction)</h2></div>
+    <p>預測 (prediction) 與偵測 (detection) 最大的差別 — <strong>預測必須在 ictal onset 之前</strong>就給出警告，讓醫師或患者有時間反應。</p>
+
+    <h3>關鍵概念</h3>
+    <ul>
+      <li><strong>Prediction Horizon (預測時窗)</strong>：從演算法警告 → 真正發作之間的時間長度，常見落在「分鐘到小時」量級。</li>
+      <li><strong>Warning</strong>：發出警告的訊號（例如：經皮閉迴路深腦電刺激 DBS 啟動、或叫醒病人）。</li>
+      <li><strong>Sensitivity</strong>：真正發作前有警告的比例；<strong>False prediction rate (FPR)</strong>：每小時平均誤報數。</li>
+    </ul>
+
+    <h3>主要的訊號特徵</h3>
+    <p>根據 Iasemidis、Lehnertz、Litt 等人多年的研究，pre-ictal 期 EEG 出現多種可量化的變化：</p>
+    <ol>
+      <li>動力系統角度：<strong>STLmax 收斂 + 復雜度下降</strong>（Lehnertz & Elger 的 neuronal complexity loss）。</li>
+      <li>能量角度：<strong>signal energy 在發作前數十分鐘逐步上升</strong> (Litt et al.)。</li>
+      <li>相似度角度：<strong>dynamical similarity 在發作前降低</strong> (Van Quyen et al.)。</li>
+    </ol>
+
+    <div class="callout warning">
+      <div class="callout-title">⚠️ scalp EEG 上的兩大挑戰</div>
+      <ol style="margin:6px 0 0;">
+        <li>頭皮 EEG 雜訊、artefact 多（眨眼、肌肉、ECG 干擾）。</li>
+        <li>訊號經頭皮、顱骨衰減 + 混疊。</li>
+      </ol>
+      解法：先做 BSS / ICA 把雜訊與源分離，再對「近源訊號」算非線性指標。或改用 phase-space dissimilarity 等對 scalp EEG 較友善的方法。
+    </div>
+  </section>
+
+  <!-- ===== 11.6 IED / 定位 ===== -->
+  <section id="s-localization" class="section">
+    <div class="section-header"><span class="section-number">11.6</span><h2>癲癇病灶的定位 (Localization)</h2></div>
+    <p>難治型癲癇病人若考慮<strong>手術切除</strong>，必須先精確找到發作源 (epileptic focus)，並確認不會傷到語言、運動等重要功能區。</p>
+
+    <h3>IED 與 HFO</h3>
+    <ul>
+      <li><strong>IED (Interictal Epileptiform Discharge)</strong>：間發期偶發的棘波 / 銳波 / spike-and-wave，是病灶最重要的線索之一。</li>
+      <li><strong>HFO (High-Frequency Oscillation)</strong>：80–500 Hz 的高頻振盪，分 ripple (80–200 Hz)、fast ripple (250–500 Hz)；fast ripple 與致癇區高度相關。</li>
+      <li>HFO 必須用<strong>侵入式電極 (iEEG / ECoG)</strong> 才能看清楚，scalp EEG 通常被肌肉雜訊蓋住。</li>
+    </ul>
+
+    <h3>記錄方式比較</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>頭皮 EEG (scalp)</h4>
+        <div class="pros">非侵入、便宜、容易長時間記錄</div>
+        <div class="cons">空間解析度差、被顱骨衰減 ~100×</div>
+      </div>
+      <div class="compare-card">
+        <h4>ECoG（皮質表面）</h4>
+        <div class="pros">高訊噪比、可看 HFO</div>
+        <div class="cons">需開顱，限手術病人</div>
+      </div>
+      <div class="compare-card">
+        <h4>深部 iEEG / SEEG</h4>
+        <div class="pros">能取樣海馬、杏仁體等深層構造</div>
+        <div class="cons">高度侵入、覆蓋有限</div>
+      </div>
+    </div>
+
+    <h3>源定位 (Source Localization)</h3>
+    <p>把多通道 EEG 視為皮質「電偶極」的線性疊加，反推出活動位置。常用方法：</p>
+    <ul>
+      <li><strong>Equivalent Current Dipole (ECD)</strong>：假設少數偶極子可解釋訊號。</li>
+      <li><strong>Distributed source</strong>：sLORETA、MNE 等，求空間分布的最佳估計。</li>
+      <li><strong>Beamformer</strong>：LCMV 等空間濾波器。</li>
+    </ul>
+
+    <h3>手術規劃 / DBS</h3>
+    <p>難治型癲癇可考慮：</p>
+    <ol>
+      <li><strong>切除手術 (resective surgery)</strong>：以準確的病灶定位為基礎。</li>
+      <li><strong>反應式神經刺激 (RNS)</strong>、<strong>深腦電刺激 (DBS)</strong>：閉迴路偵測到 onset 立即電刺激打斷之。</li>
+      <li><strong>迷走神經刺激 (VNS)</strong>。</li>
+    </ol>
+  </section>
+
+  <!-- ===== 11.7 EEG–fMRI 融合 ===== -->
+  <section id="s-fusion" class="section">
+    <div class="section-header"><span class="section-number">11.7</span><h2>EEG–fMRI 多模態融合</h2></div>
+    <p>EEG 時間解析度好、空間解析度差；fMRI 反之。<strong>同步記錄 EEG 與 fMRI</strong> 後，能用以下流程提升癲癇定位精度：</p>
+    <ol>
+      <li>從長時 EEG 抓出典型 spike，做平均得到「癲癇地圖 (epileptic map)」。</li>
+      <li>與機艙內同步記錄的 EEG 做相關，得到時間序列。</li>
+      <li>把這時序與血液動力反應函數 (HRF) 卷積，作為 fMRI 分析的 regressor。</li>
+      <li>fMRI 上 BOLD 顯著的區域，就是和那群 spike 對應的腦區。</li>
+    </ol>
+    <div class="callout info">
+      <div class="callout-title">📌 重要研究結果</div>
+      absence seizure 病人在發作前 5 秒以上，<strong>orbital/medial frontal 與 medial/lateral parietal cortex</strong> 已出現小幅 fMRI BOLD 上升；發作後則有大幅、持續的 BOLD 下降。這些細節無法用傳統 HRF 模型偵測。
+    </div>
+  </section>
+
+  <!-- ===== 11.8 摘要 ===== -->
+  <section id="s-summary" class="section">
+    <div class="section-header"><span class="section-number">11.8</span><h2>本章摘要</h2></div>
+    <ul>
+      <li>癲癇是「神經元異常超同步放電」造成的反覆性短暫腦功能異常，可分為 focal 與 generalized 兩大類。</li>
+      <li>EEG 是癲癇最常用的監測工具；偵測 (detection) 已有 &gt; 90% accuracy 的 CNN 方案，新生兒偵測仍是難題。</li>
+      <li>常用特徵：能量、DWT/STFT 時頻、Lyapunov 指數、phase-slope index、連結性指標。</li>
+      <li>預測 (prediction) 基於「pre-ictal 期 EEG 動力學特性會緩慢改變」這一觀察，最有名的證據是 STLmax 收斂 (dynamical entrainment)。</li>
+      <li>定位 (localization) 仰賴 IED、HFO、source localization 與 iEEG/ECoG 高解析記錄，是難治型癲癇手術評估的核心。</li>
+      <li>EEG–fMRI 融合與深腦電刺激 (DBS) 是當前的研究熱點。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🚀 下一步</div>
+      第 12 章將探討「睡眠 EEG」 — 從睡眠分期、spindle、K-complex 到睡眠障礙 (apnea, narcolepsy)，與本章共用大量訊號處理工具。
+    </div>
+  </section>
+
+  <!-- ===== Quiz ===== -->
+  <section id="s-quiz">
+    <div id="quiz-host"></div>
+  </section>
+
+</main>
+
+<!-- ===== 頁尾版權 ===== -->
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">本網頁內容依教學目的整理自 Sanei & Chambers (2022) 第 11 章。</div>
+</footer>
+
+<!-- ===== JS ===== -->
+<script src="../assets/js/api.js?v=1"></script>
+<script src="../assets/js/quiz-engine.js?v=1"></script>
+<script src="../assets/data/chapter11-questions.js?v=1"></script>
+<script src="../assets/js/chapter11.js?v=1"></script>
+</body>
+</html>

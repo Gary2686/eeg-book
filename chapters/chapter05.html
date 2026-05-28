@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第五章 — EEG 訊號分解 | EEG Signal Processing 互動教材</title>
+<meta name="description" content="EEG Signal Processing and Machine Learning, 2nd Edition — Chapter 5 EEG Signal Decomposition 互動式教學。內容涵蓋 SSA、ICA、BSS、SCA、張量分解。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css?v=1">
+</head>
+<body>
+
+<!-- ===== 上方導覽 ===== -->
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html" class="site-logo">
+      <svg class="site-logo-icon" viewBox="0 0 32 32" fill="none">
+        <path d="M2 16 Q5 6 9 16 T16 16 T23 16 T30 16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+      </svg>
+      EEG 互動教材
+    </a>
+    <nav class="site-nav">
+      <a href="#s-overview">概覽</a>
+      <a href="#s-intro">5.1 引言</a>
+      <a href="#s-ssa">5.2 SSA</a>
+      <a href="#s-ica">5.3 ICA / BSS</a>
+      <a href="#s-sca">5.4 稀疏分解</a>
+      <a href="#s-nonlinear">5.5 非線性</a>
+      <a href="#s-constrained">5.6 約束 BSS</a>
+      <a href="#s-tensor">5.8 張量分解</a>
+      <a href="#s-extra">5.11 相關源 &amp; CCA</a>
+      <a href="#s-summary">摘要</a>
+      <a href="#s-quiz">📝 測驗</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== Hero ===== -->
+<section class="chapter-hero">
+  <div class="chapter-hero-inner">
+    <span class="chapter-tag">CHAPTER 05</span>
+    <h1 class="chapter-title">EEG Signal Decomposition</h1>
+    <p class="chapter-subtitle">如何把一堆「攪在一起」的腦電訊號還原成原本各自獨立的源訊號</p>
+    <div class="chapter-objectives">
+      <h3>🎯 本章學習目標</h3>
+      <ul>
+        <li>理解『盲源分離 (BSS)』的本質：觀測 = 源 × 未知混合矩陣 + 雜訊，目標就是反推矩陣。</li>
+        <li>掌握單通道分解工具 SSA（嵌入＋SVD＋對角平均）的兩階段流程。</li>
+        <li>能說明 ICA、SOBI、JADE、fastICA 等多通道 BSS 演算法的核心假設與差異。</li>
+        <li>瞭解 convolutive BSS、anechoic / echoic 模型，與 permutation 問題如何產生。</li>
+        <li>掌握『稀疏成分分析 (SCA)』如何處理 underdetermined（源比感測器多）情境。</li>
+        <li>看懂張量 (tensor) 的概念，以及 PARAFAC / PARAFAC2 / SOBIUM / FOOBI 在 EEG 上的應用。</li>
+        <li>了解 Constrained BSS、Common Component Analysis、CCA 等延伸方法的用途。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<main class="page">
+
+  <!-- ===== 概覽 ===== -->
+  <section id="s-overview" class="section">
+    <div class="section-header"><span class="section-number">OVERVIEW</span><h2>本章地圖</h2></div>
+    <p>EEG 是大腦內部許多源（皮質源、深層源、偽影源）疊加後在頭皮上量到的訊號。<strong>因為各源到電極的時間差幾乎為零</strong>，這個混合可以視為線性瞬時混合。本章一路從『單通道也能分解』講到『多通道、多模態、多受試者一起分解』，並把『更難的問題 — 源比感測器多』也納入討論。</p>
+    <div class="callout key">
+      <div class="callout-title">🧭 一張圖看懂本章</div>
+      <ul style="margin:0;">
+        <li><strong>單通道</strong>：5.2 SSA</li>
+        <li><strong>多通道、瞬時混合</strong>：5.3 ICA, Infomax, fastICA, JADE, SOBI</li>
+        <li><strong>多通道、卷積混合（雞尾酒會）</strong>：5.3.3 Convolutive BSS</li>
+        <li><strong>源比感測器多</strong>：5.4 SCA / k-SCA</li>
+        <li><strong>非線性混合 / 加先驗</strong>：5.5 Nonlinear BSS、5.6 Constrained BSS</li>
+        <li><strong>多模態 / 非平穩</strong>：5.8 ~ 5.10 張量分解 (PARAFAC / PARAFAC2 / SOBIUM / FOOBI)</li>
+        <li><strong>相關源、共同子空間</strong>：5.11 相關源, 5.12 Common Component Analysis, 5.13 CCA</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 5.1 引言 ===== -->
+  <section id="s-intro" class="section">
+    <div class="section-header"><span class="section-number">5.1</span><h2>引言 — 為什麼要做訊號分解？</h2></div>
+    <p>EEG 在頭皮上記錄到的，從來都不是『某一個』神經元或腦區的訊號，而是<strong>大量源的線性疊加</strong>，再加上眼動、肌電、心電、外部電磁干擾等偽影。</p>
+    <ul>
+      <li>如果想看到某個特定 ERP，必須把它從其他源裡『拉出來』。</li>
+      <li>如果想去除眼動偽影、心電偽影、MRI 掃描偽影，也是同一個問題：拆掉不想要的源、留下想要的。</li>
+      <li>多通道的 EEG 提供了空間多樣性 — 越多通道，越容易把源拆開。</li>
+    </ul>
+
+    <div class="callout info">
+      <div class="callout-title">🧪 BSS 的數學模型（背熟！）</div>
+      <strong>瞬時模型：</strong> x(n) = H · s(n) + v(n)<br>
+      其中：<br>
+      • <span class="term" data-tip="觀測訊號，n_e × 1，n_e 為電極數">x(n)</span> 是觀測<br>
+      • <span class="term" data-tip="源訊號，m × 1，m 為源數">s(n)</span> 是源訊號<br>
+      • <span class="term" data-tip="未知混合矩陣，n_e × m">H</span> 是未知混合矩陣<br>
+      • <span class="term" data-tip="量測雜訊">v(n)</span> 是雜訊<br>
+      <br>
+      目標：找一個 m × n_e 的 <strong>W</strong> 使 y(n) = W · x(n) ≈ s(n)。<br>
+      ⚠️ 由於 ICA 只用獨立性反推，<strong>W = P · D · H<sup>-1</sup></strong>，必有<u>置換 (P) 與縮放 (D) 模糊</u>。
+    </div>
+
+    <p>📌 <strong>大原則：要把 m 個源拆開，至少要 n_e ≥ m 個電極（exactly- 或 over-determined）。</strong>若反過來 n_e &lt; m，就是 <em>underdetermined</em>，要用稀疏假設才能解。</p>
+
+    <!-- 互動：BSS 概念示意 -->
+    <h3>🎛️ 互動：BSS 概念示意 — 觀測 vs. 源</h3>
+    <p>下圖左：3 個獨立源（正弦、方波、衝擊脈衝），經過一個 3×3 隨機混合矩陣後，右邊就變成觀測。試著切換『顯示源』或『顯示觀測』，體會『混在一起後看不出原樣』的感覺，再點「執行 ICA」看見奇蹟。</p>
+    <div class="interactive">
+      <div class="interactive-title">🎛️ BSS 玩具示範（純動畫示意）</div>
+      <div class="interactive-controls">
+        <button id="bss-show-sources" class="btn">① 顯示源 s(t)</button>
+        <button id="bss-show-mix"     class="btn secondary">② 顯示觀測 x(t) = H·s(t)</button>
+        <button id="bss-run-ica"      class="btn success">③ 執行 ICA → 恢復源</button>
+      </div>
+      <div class="svg-figure" style="padding:8px;">
+        <svg id="bss-plot" viewBox="0 0 720 280" style="width:100%;max-width:760px;background:#fafbff;border-radius:8px;"></svg>
+        <div class="svg-caption" id="bss-caption">點上方按鈕逐步觀察。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 5.2 SSA ===== -->
+  <section id="s-ssa" class="section">
+    <div class="section-header"><span class="section-number">5.2</span><h2>單通道分解：Singular Spectrum Analysis (SSA)</h2></div>
+    <p>很多時候只有<strong>一條 EEG</strong>（例如可穿戴 BCI 只裝一個電極、駕駛疲勞偵測等），這時 ICA 無計可施。<span class="term" data-tip="奇異譜分析 Singular Spectrum Analysis">SSA</span> 就是專門對付『單通道』的分解工具。</p>
+
+    <h3>SSA 的兩階段流程</h3>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-body"><strong>嵌入 (Embedding)</strong><small>用滑動窗把 1D 序列堆成 <em>l × k</em> 的 Hankel 軌跡矩陣 X（同一反對角元素相等）。</small></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><strong>奇異值分解 (SVD)</strong><small>對 X 做 SVD：X = Σ √λᵢ · uᵢ · vᵢᵀ，按特徵值大小排出每個成分。</small></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><strong>分組 (Eigentriple grouping)</strong><small>把成分依物理意義分組（例如：節律、心電、肌電、偽影）。</small></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-body"><strong>對角平均 (Hankelization)</strong><small>把每組矩陣沿反對角線取平均，還原成一維時間序列。</small></div></div>
+    </div>
+
+    <div class="callout key">
+      <div class="callout-title">📌 SSA 的關鍵設計選擇</div>
+      <ul style="margin:0;">
+        <li><strong>嵌入維度 l (window length)</strong> 要夠大，但太大耗算力。</li>
+        <li><strong>分組規則</strong>：書中以 EMG 中分離 ECG 為例，依統計性質 (kurtosis、能量) 自動挑成分。</li>
+        <li><strong>分離性 (separability)</strong> 是 SSA 的核心概念 — 如果兩成分頻譜近、相位接近，就無法用 SSA 拆。</li>
+      </ul>
+    </div>
+
+    <p>👉 書中 Figure 5.1 示範：以 SSA 從 EMG 中漂亮地把 ECG 分離出來。實際上 SSA 也常用於非平穩 EEG、心電 baseline drift 移除、生理訊號去趨勢。</p>
+  </section>
+
+  <!-- ===== 5.3 ICA / BSS ===== -->
+  <section id="s-ica" class="section">
+    <div class="section-header"><span class="section-number">5.3</span><h2>多通道分解 — ICA、Instantaneous BSS、Convolutive BSS</h2></div>
+    <p>多通道 EEG（常見 16 至 256 通道）允許使用更強大的 <span class="term" data-tip="Independent Component Analysis 獨立成分分析">ICA</span>。<strong>核心假設：腦源彼此統計獨立</strong>，因此可以把混合訊號拆回各自獨立的成分。</p>
+
+    <h3>5.3.1 ICA 的三大策略</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>① 機率密度因子化</h4>
+        <div class="pros">透過 KL 散度衡量聯合 vs. 邊際 pdf</div>
+        <div class="cons">非平穩或短訊號時 pdf 估不準</div>
+      </div>
+      <div class="compare-card">
+        <h4>② 時間方向去相關 (SOS)</h4>
+        <div class="pros">只用二階統計，雜訊強健</div>
+        <div class="pros">SOBI 屬於此類</div>
+      </div>
+      <div class="compare-card">
+        <h4>③ 消除時間延遲交叉相關</h4>
+        <div class="pros">在多個時間延遲同時對角化共變異</div>
+        <div class="pros">適合白雜訊環境（τ ≠ 0 可避開雜訊）</div>
+      </div>
+    </div>
+
+    <h3>5.3.2 經典演算法總表</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>演算法</th><th>核心統計</th><th>關鍵特點</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Infomax</strong> (Bell &amp; Sejnowski 1995)</td><td>互訊息最小化 ≡ 熵最大化</td><td>用神經網路 + 隨機梯度上升估 W</td></tr>
+          <tr><td><strong>fastICA</strong> (Hyvärinen &amp; Oja 1997)</td><td>峰度 / 負熵（非高斯性）</td><td>逐源萃取，spike 類訊號（如 fMRI scanner 偽影）超強</td></tr>
+          <tr><td><strong>JADE</strong> (Cardoso 1989)</td><td>四階累積量</td><td>對四階累積量張量做聯合對角化</td></tr>
+          <tr><td><strong>SOBI</strong> (Belouchrani 1997)</td><td>二階統計 + 非平穩</td><td>多個時間延遲共變異同時對角化，抗雜訊</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-title">💡 為什麼要『非高斯』？</div>
+      若所有源都是高斯，則任意旋轉後它們的聯合分佈仍為高斯且彼此獨立，<strong>ICA 無法分辨</strong>。所以 ICA 要求最多只能有一個源是高斯，其餘必須是非高斯（如 sub-Gaussian 或 super-Gaussian）。
+    </div>
+
+    <h3>5.3.3 Convolutive BSS — 雞尾酒會問題</h3>
+    <p>在聲學環境（如雞尾酒會）裡，源不只透過一個延遲到達感測器，還會經牆面反射形成多路徑。混合模型變為<strong>卷積</strong>：</p>
+    <div class="callout info">
+      x(n) = H(n) ∗ s(n) + v(n)
+    </div>
+    <p>分成兩類：</p>
+    <ul>
+      <li><strong>Anechoic（消音）：</strong>每對 source-sensor 只有一個延遲 δ_ij 與一個衰減 h_ij</li>
+      <li><strong>Echoic（回音）：</strong>多路徑 + 多次反射，混合矩陣是無窮長的脈衝響應</li>
+    </ul>
+
+    <h3>頻域法 vs. 時域法</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>頻域法</h4>
+        <div class="pros">用 STFT 轉到頻域，每個 bin 做 instantaneous BSS — 快</div>
+        <div class="cons">嚴重的『置換 (permutation)』問題：不同 bin 的源順序不一致，回時域就錯了</div>
+      </div>
+      <div class="compare-card">
+        <h4>時域法</h4>
+        <div class="pros">直接估 W 與延遲 δ，沒有頻域 permutation 問題</div>
+        <div class="cons">參數很多，收斂慢；常需要先驗知識</div>
+      </div>
+    </div>
+
+    <div class="callout warning">
+      <div class="callout-title">⚠️ 為什麼 EEG 多半用 instantaneous？</div>
+      EEG 頻寬 &lt;100 Hz、電磁波速度 ≈ 3×10⁸ m/s，從皮質到頭皮的延遲幾乎為 0。所以即使是長距離通道，仍可用 instantaneous BSS。<br>
+      <strong>例外：</strong>當源位置在分析段內會移動（如長時間運動），需用 <em>spatial BSS</em>，此時通道空間上的『移位』類比於時間延遲，仍需 convolutive 思路。
+    </div>
+  </section>
+
+  <!-- ===== 5.4 SCA ===== -->
+  <section id="s-sca" class="section">
+    <div class="section-header"><span class="section-number">5.4</span><h2>稀疏成分分析 (SCA) — 源比電極多怎麼辦？</h2></div>
+    <p>當源數 m 大於電極數 n_e 時，<strong>混合矩陣不可逆</strong>，傳統 ICA 失效。這時要利用一個重要結構 — 訊號的<strong>稀疏性 (sparsity)</strong>。</p>
+
+    <div class="callout key">
+      <div class="callout-title">🌟 稀疏訊號的關鍵假設</div>
+      在『某個域』(時域、TF 域、字典域) 裡，<strong>每個時刻只有少數源是非零的</strong>。<br>
+      自然界一堆訊號都符合：
+      <ul style="margin:6px 0;">
+        <li>EEG 的眼動 spike</li>
+        <li>ECG 的 QRS</li>
+        <li>海馬 interictal discharges</li>
+        <li>基因序列突變</li>
+      </ul>
+    </div>
+
+    <h3>5.4.1 標準稀疏恢復演算法</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>貪婪法 (Greedy)</h4>
+        <div class="pros">Matching Pursuit (MP)</div>
+        <div class="pros">Orthogonal MP (OMP)</div>
+        <div class="pros">CoSaMP</div>
+        <p style="font-size:13px;color:#475569;">逐次找與殘差最相關的字典欄位，逼近離散支援集。</p>
+      </div>
+      <div class="compare-card">
+        <h4>鬆弛法 (Relaxation)</h4>
+        <div class="pros">Basis Pursuit (L1-norm)</div>
+        <div class="pros">FOCUSS (IRLS, L2 加權)</div>
+        <div class="pros">Smoothed L0</div>
+        <p style="font-size:13px;color:#475569;">把不可微的 L0 換成連續函數，做連續最佳化。</p>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-title">🔑 L0 與 L1 的關係</div>
+      <strong>L0-norm</strong>：算非零元素數量；最直觀但 NP-hard。<br>
+      <strong>L1-norm</strong>：算絕對值總和；是 L0 的凸鬆弛 (convex relaxation)。<br>
+      在足夠稀疏 (RIP 條件) 下，L1 解 = L0 解 — 這正是壓縮感知 (Compressed Sensing) 的核心。
+    </div>
+
+    <h3>k-SCA — 推廣到多源同時活躍</h3>
+    <p>傳統 SCA 要求<em>每瞬間只有一個源活躍</em>，太嚴苛。<strong>k-SCA</strong> 放寬為『每瞬間最多 k 個源活躍』(k &lt; n_e)，在合理條件下仍可估計混合矩陣與源。書中 [151] 證明只要 <strong>k ≤ m − 1</strong>，A 與 S 都可被識別。</p>
+  </section>
+
+  <!-- ===== 5.5 Nonlinear ===== -->
+  <section id="s-nonlinear" class="section">
+    <div class="section-header"><span class="section-number">5.5</span><h2>非線性 BSS</h2></div>
+    <p>有些情況混合本身就是非線性：</p>
+    <ul>
+      <li>影印機把半透明紙正反面圖樣疊在一起：灰階值不能突破 0–1，會飽和。</li>
+      <li>從皮膚表面同時聽心音與肺音：身體組織會隨聲波振動，造成非線性混合。</li>
+    </ul>
+    <div class="callout info">
+      x(n) = f(A · s(n)) + n(n)<br>
+      y(n) = g(W · x(n))
+    </div>
+    <p>常見作法是把 f(·) 用 <strong>RBF 神經網路</strong>近似，再迭代最佳化。但這類問題目前仍無通用解。</p>
+  </section>
+
+  <!-- ===== 5.6 Constrained BSS ===== -->
+  <section id="s-constrained" class="section">
+    <div class="section-header"><span class="section-number">5.6</span><h2>約束 BSS (Constrained BSS)</h2></div>
+    <p>純 BSS 只用統計獨立性，但在 EEG 上其實還有<strong>大量臨床/解剖/物理先驗</strong>可以利用。約束 BSS 就是把這些先驗以懲罰項加進代價函數：</p>
+    <div class="callout info">
+      J(W) = J_m(W) + κ · φ(J_c(W))
+    </div>
+    <p>其中 J_m 是主目標 (如聯合對角化)、J_c 是約束 (如『某成分必須與 EOG 高度相關 → 它是眼動偽影』)、κ 是調節係數。</p>
+
+    <h3>5.7 應用案例：拓樸 ICA + 約束 = 自動定位癲癇源</h3>
+    <p>Hyvärinen 等人提出『拓樸 ICA』，假設『空間上靠近的源彼此相關，遠的源獨立』，並用鄰近函數 h(i,j) 規範相鄰成分。書中 Figure 5.5/5.6 展示：在 16 通道癲癇 EEG 上，第 6 個 IC 即清楚對應左側顳葉的發作源。</p>
+  </section>
+
+  <!-- ===== 5.8 Tensor ===== -->
+  <section id="s-tensor" class="section">
+    <div class="section-header"><span class="section-number">5.8 ~ 5.10</span><h2>多向 (Multiway) 分解 — 張量因子化</h2></div>
+    <p>EEG 不只是『通道×時間』兩維資料。我們還可以加上：</p>
+    <ul>
+      <li><strong>頻率</strong>（每個電極做 TF 轉換）</li>
+      <li><strong>段落 (segment)</strong>（捕捉非平穩性）</li>
+      <li><strong>trials</strong>（多次實驗）</li>
+      <li><strong>subjects</strong>（多受試者）</li>
+    </ul>
+    <p>合起來成為 <strong>3 維或更高維的張量 (tensor)</strong>。處理它最自然的工具就是<strong>張量因子化</strong>。</p>
+
+    <div class="callout key">
+      <div class="callout-title">🧊 一階 / 二階 / 高階張量</div>
+      <ul style="margin:0;">
+        <li><strong>一階張量</strong> = 向量</li>
+        <li><strong>二階張量</strong> = 矩陣</li>
+        <li><strong>三階及以上</strong> = 高階張量（multidimensional array）</li>
+      </ul>
+    </div>
+
+    <h3>Tucker vs. PARAFAC</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>Tucker 分解</h4>
+        <div class="pros">高階版 PCA</div>
+        <div class="pros">有 core tensor，可彈性安排</div>
+        <div class="cons">分解<strong>不唯一</strong>（core 可任意旋轉）</div>
+      </div>
+      <div class="compare-card">
+        <h4>PARAFAC (CANDECOMP/CP)</h4>
+        <div class="pros">高階版 SVD</div>
+        <div class="pros">core tensor 為超對角 → 分解<strong>唯一</strong></div>
+        <div class="pros">最常用於 BSS</div>
+      </div>
+    </div>
+
+    <h3>PARAFAC 數學形式</h3>
+    <div class="callout info">
+      x_ijk = Σ_{r=1}^{R} a_ir · b_jr · c_kr + e_ijk<br>
+      用矩陣表示：X_k = B · D_k · A^T + E_k
+    </div>
+    <p>三個因子矩陣 A、B、C 分別對應通道、頻率、時間等不同模式；R 是『成分數』。可用 <strong>交替最小平方 (ALS)</strong> 迭代估出。</p>
+
+    <h3>PARAFAC2 — 處理非平穩</h3>
+    <p>PARAFAC2 允許其中一個模式 (例如時間) 跨切片有變化：A_k = P_k · H，其中 P_k 為正交。這樣可保留唯一性卻能容忍非平穩，非常適合 EEG 的『段內穩、段間變』特性。</p>
+
+    <h3>5.9 ~ 5.10 Underdetermined 與 Convolutive 場合</h3>
+    <p>SOBIUM 與 FOOBI 是兩種<strong>用張量解 underdetermined BSS</strong> 的方法：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>方法</th><th>用的統計</th><th>最大可分離源數（N_x 觀測）</th></tr></thead>
+        <tbody>
+          <tr><td>SOBIUM (real)</td><td>二階共變異</td><td>N_x=4 → 6 ; N_x=5 → 8 ; N_x=6 → 10</td></tr>
+          <tr><td>FOOBI (real)</td><td>四階累積量</td><td>N_x=4 → 8 ; N_x=5 → 13 ; N_x=6 → 20</td></tr>
+          <tr><td>SOBIUM (complex)</td><td>二階</td><td>更高</td></tr>
+          <tr><td>FOOBI (complex)</td><td>四階</td><td>最高 (N_x=6 → 36)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>另一個 <strong>UOM-BSS</strong> (underdetermined orthogonal model BSS) 推廣了 SOBIUM，並結合『稀疏事件 (sparse events)』概念 — 一段時間內最多 k_a 個源活躍。</p>
+
+    <!-- 互動 2：ICA 動畫 -->
+    <h3>🎬 互動：ICA 收斂演示</h3>
+    <p>下面的玩具動畫展示 ICA 的核心精神 — <strong>找一個旋轉，使資料在兩軸上的分佈儘量「非高斯」</strong>。點按鈕觀察分離角度的變化。</p>
+    <div class="interactive">
+      <div class="interactive-title">🌀 ICA 旋轉示意（玩具示範）</div>
+      <div class="interactive-controls">
+        <button id="ica-step"  class="btn">▶ 下一步</button>
+        <button id="ica-reset" class="btn secondary">↺ 重置</button>
+        <span id="ica-iter" style="font-size:13px;color:#475569;">迭代 0 / 12</span>
+      </div>
+      <div class="svg-figure" style="padding:8px;">
+        <svg id="ica-plot" viewBox="0 0 360 320" style="width:100%;max-width:480px;background:#fafbff;border-radius:8px;"></svg>
+        <div class="svg-caption">藍點為觀測 (混合後的散佈)；紅色軸是 ICA 估到的『獨立方向』。當紅軸對齊資料的主要『非高斯軸』時，分離完成。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 5.11 ~ 5.13 ===== -->
+  <section id="s-extra" class="section">
+    <div class="section-header"><span class="section-number">5.11~5.13</span><h2>相關源、共同子空間、與 CCA</h2></div>
+    <h3>5.11 分離『相關源』</h3>
+    <p>很多生理源天生就<strong>相關</strong>，因為它們由相同事件觸發 — 例如 ECG 的 QRS 各成分、ERP 中的 P3a 與 P3b。傳統 ICA 因『獨立』假設失效。書中以 PARAFAC2 在合成資料上展示了可能的分離方案，但實際 EEG 上仍是活躍研究議題。</p>
+
+    <h3>5.12 Common Component Analysis</h3>
+    <p>當有多個共變異矩陣 X_t（例如不同時段、不同受試者），假設它們都是某個<strong>共同的低維子空間 U</strong> 的線性轉換：</p>
+    <div class="callout info">
+      X_t = U · Y_t · U^T + E_t，其中 U^T U = I_r
+    </div>
+    <p>只有單一 X_1 時，就退化成 PCA。多個矩陣時，可用張量分解求解。</p>
+
+    <h3>5.13 Canonical Correlation Analysis (CCA)</h3>
+    <p>CCA 找兩組變數 X、Y 的線性組合 U = W_x X、V = W_y Y，使 corr(U, V) 最大化：</p>
+    <div class="callout info">
+      ρ(U, V) = (W_x Σ_xy W_y^T) / √(W_x Σ_x W_x^T · W_y Σ_y W_y^T)
+    </div>
+    <p><strong>EEG 應用：</strong>De Clercq 等人用 CCA 從 EEG 移除肌電 (EMG) 偽影 — 因為肌電在連續樣本間相關度低，會被 CCA 排在最低權重的成分。</p>
+  </section>
+
+  <!-- ===== 摘要 ===== -->
+  <section id="s-summary" class="section">
+    <div class="section-header"><span class="section-number">5.14</span><h2>本章摘要</h2></div>
+    <ul>
+      <li>BSS 的本質就是『反推未知混合矩陣』，以瞬時模型 x = Hs + v 為最普及版本。</li>
+      <li>單通道：用 SSA（嵌入 + SVD + 分組 + 對角平均）。</li>
+      <li>多通道、瞬時：ICA 系列（Infomax、fastICA、JADE、SOBI）。</li>
+      <li>多通道、卷積（雞尾酒會）：時域或頻域 BSS；頻域要面對 permutation 問題。</li>
+      <li>源比電極多 (underdetermined)：靠稀疏假設 → SCA、k-SCA；或靠張量更高的秩 → SOBIUM、FOOBI、UOM-BSS。</li>
+      <li>非線性混合：RBF 網路等，目前仍開放問題。</li>
+      <li>約束 BSS：把臨床/物理先驗加進代價函數，能大幅提升 EEG 偽影移除效果。</li>
+      <li>張量分解（PARAFAC、PARAFAC2）是處理 EEG『非平穩 + 多模態 + 多受試者』的關鍵工具。</li>
+      <li>相關源（如 P3a/P3b）與共同子空間，可用 PARAFAC2、Common CA、CCA 處理。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🚀 下一步</div>
+      第 6 章將進入<strong>混沌與動力系統分析</strong>：當訊號表面看起來像雜訊時，我們如何用 Lyapunov 指數、碎形維度、熵等工具描述它『深層的規律』。
+    </div>
+  </section>
+
+  <!-- ===== Quiz ===== -->
+  <section id="s-quiz">
+    <div id="quiz-host"><!-- Quiz 引擎將掛載於此 --></div>
+  </section>
+
+</main>
+
+<!-- ===== 頁尾 ===== -->
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">本網頁內容依教學目的整理自 Sanei &amp; Chambers (2022) 第 5 章。</div>
+</footer>
+
+<script src="../assets/js/api.js?v=1"></script>
+<script src="../assets/js/quiz-engine.js?v=1"></script>
+<script src="../assets/data/chapter05-questions.js?v=1"></script>
+<script src="../assets/js/chapter05.js?v=1"></script>
+</body>
+</html>

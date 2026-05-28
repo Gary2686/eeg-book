@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十五章 — 神經退化性疾病的 EEG 分析 | EEG Signal Processing 互動教材</title>
+<meta name="description" content="EEG Signal Processing and Machine Learning, 2nd Edition — Chapter 15 EEG Analysis of Neurodegenerative Diseases 互動式教學。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css?v=1">
+</head>
+<body>
+
+<!-- ===== 上方導覽 ===== -->
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html" class="site-logo">
+      <svg class="site-logo-icon" viewBox="0 0 32 32" fill="none">
+        <path d="M2 16 Q5 6 9 16 T16 16 T23 16 T30 16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+      </svg>
+      EEG 互動教材
+    </a>
+    <nav class="site-nav">
+      <a href="#s-overview">概覽</a>
+      <a href="#s-intro">15.1 引言</a>
+      <a href="#s-ad">15.2 AD</a>
+      <a href="#s-mnd">15.3 ALS</a>
+      <a href="#s-pd">15.4 PD</a>
+      <a href="#s-hd">15.5 HD</a>
+      <a href="#s-prion">15.6 CJD</a>
+      <a href="#s-ftd">15.7 FTD</a>
+      <a href="#s-lbd">15.8 LBD</a>
+      <a href="#s-summary">15.9 摘要</a>
+      <a href="#s-quiz">📝 測驗</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== Hero 章節首屏 ===== -->
+<section class="chapter-hero">
+  <div class="chapter-hero-inner">
+    <span class="chapter-tag">CHAPTER 15</span>
+    <h1 class="chapter-title">EEG Analysis of Neurodegenerative Diseases</h1>
+    <p class="chapter-subtitle">用腦電圖偵測「神經慢慢死亡」的疾病 —— 從阿茲海默到帕金森</p>
+    <div class="chapter-objectives">
+      <h3>🎯 本章學習目標</h3>
+      <ul>
+        <li>了解「神經退化性疾病」的共同特徵（神經元逐漸死亡、特定蛋白沉積）。</li>
+        <li>掌握阿茲海默症 (AD) 在 EEG 上的三大特徵：節律變慢、複雜度下降、連結度改變。</li>
+        <li>分辨輕度認知障礙 (MCI)、AD、額顳葉失智 (FTD)、路易體失智 (LBD) 的 EEG 差異。</li>
+        <li>了解帕金森氏症 (PD)、亨丁頓氏症 (HD)、肌萎縮側索硬化症 (ALS) 與 EEG 連結度的關係。</li>
+        <li>說明常見的腦連結度量：相干性 (coherence)、PLI、wPLI、PLV 各自為什麼存在。</li>
+        <li>能解釋為何「圖論 (graph theory)」是 EEG 分析神經退化症的重要工具。</li>
+        <li>了解 Creutzfeldt–Jakob (CJD) 在 EEG 上的標誌性週期性尖波。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<main class="page">
+
+  <!-- ===== 概覽 ===== -->
+  <section id="s-overview" class="section">
+    <div class="section-header"><span class="section-number">OVERVIEW</span><h2>本章地圖</h2></div>
+    <p>每四秒鐘，世界上就多一個失智症患者。神經退化性疾病是一群「神經元慢慢凋亡」的疾病，最常見的是 <strong>AD（阿茲海默症）</strong>，但還有帕金森、亨丁頓、ALS、路易體失智等。它們的「黃金標準」診斷常需要驗腦組織，但 EEG 提供了一條<strong>非侵入、便宜、可早期偵測</strong>的捷徑。</p>
+    <div class="callout key">
+      <div class="callout-title">🧭 你會在這章獲得</div>
+      <ul style="margin:6px 0;">
+        <li><strong>三大 EEG 生物標記</strong>：節律變慢 (slowing)、訊號變簡單 (complexity ↓)、連結度改變 (connectivity changed)。</li>
+        <li>了解 <strong>iCOH、PLI、wPLI、PLV</strong> 等連結度量為何要不斷被改進。</li>
+        <li>看見「腦網絡受損」如何透過圖論的<u>群聚係數</u>與<u>路徑長度</u>體現。</li>
+        <li>對每一種神經退化症能說出 1–2 個關鍵 EEG 特徵。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 15.1 引言 ===== -->
+  <section id="s-intro" class="section">
+    <div class="section-header"><span class="section-number">15.1</span><h2>引言 — 什麼是神經退化性疾病？</h2></div>
+    <p><strong>神經退化性疾病 (Neurodegenerative Diseases)</strong> 是一群異質性疾病的總稱，特徵是中樞或周邊神經系統的「結構與功能<u>逐漸退化</u>」。它就像一棟逐漸老化的房子，神經元一根根斷掉、突觸越來越鬆動。</p>
+
+    <h3>主要成員</h3>
+    <ul>
+      <li><strong>AD</strong>（阿茲海默症）— 最常見，占失智症的 60–80%。</li>
+      <li><strong>PD</strong>（帕金森氏症）— 第二常見，主要是<u>運動症狀</u>（手抖、僵硬、動作緩慢）。</li>
+      <li><strong>FTD</strong>（額顳葉失智，含 bvFTD 行為變異型）。</li>
+      <li><strong>HD</strong>（亨丁頓氏症）— 遺傳性，基底核退化。</li>
+      <li><strong>LBD / DLB</strong>（路易體失智）— 第二常見的進行性失智。</li>
+      <li><strong>ALS</strong>（肌萎縮側索硬化症，俗稱漸凍人）— 運動神經元疾病的代表。</li>
+      <li><strong>CJD</strong>（庫賈氏症）— 普利昂蛋白引起，EEG 有極特殊的週期性尖波。</li>
+    </ul>
+
+    <h3>共同的「分子壞蛋」</h3>
+    <p>每一種疾病，腦組織內常會堆積特定的「毒蛋白」。臨床難以單獨用症狀判斷，因為很多病人會同時擁有<strong>兩到四種</strong>蛋白病變特徵。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>疾病</th><th>典型沉積蛋白</th><th>主要影響區</th></tr></thead>
+        <tbody>
+          <tr><td>AD</td><td>amyloid-β、p-tau</td><td>大腦皮質、海馬迴</td></tr>
+          <tr><td>PD / DLB / MSA</td><td>α-synuclein</td><td>黑質、基底核（PD）、皮質下（DLB）</td></tr>
+          <tr><td>PSP / CBD</td><td>tau</td><td>腦幹、基底核</td></tr>
+          <tr><td>FTD / ALS</td><td>TDP-43</td><td>額葉、顳葉、運動神經元</td></tr>
+          <tr><td>CJD</td><td>普利昂蛋白 (prion, PrP<sup>Sc</sup>)</td><td>瀰漫性皮質</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>失智症的四個階段</h3>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-body"><strong>MCI 輕度認知障礙</strong><small>主要是忘東忘西，但日常生活還能自理。許多人停在這階段，少數會惡化為 AD。</small></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><strong>Mild Dementia 輕度失智</strong><small>偶爾迷路、計畫困難、人格變化。</small></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><strong>Moderate Dementia 中度失智</strong><small>需協助穿衣、可能猜疑或激動。</small></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-body"><strong>Severe Dementia 重度失智</strong><small>失去溝通能力、需全時照護。</small></div></div>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-title">💡 為什麼 EEG 重要？</div>
+      腦組織病理是「黃金標準」，但需要等死後解剖；MRI 看得到結構但較慢、貴。<strong>EEG 便宜、可重複、可長期追蹤</strong>，在「腦連結度」這一塊（第 8 章已介紹）特別有用。本章就是把第 8 章的工具，用在這些疾病上。
+    </div>
+  </section>
+
+  <!-- ===== 15.2 AD ===== -->
+  <section id="s-ad" class="section">
+    <div class="section-header"><span class="section-number">15.2</span><h2>阿茲海默症 (Alzheimer's Disease)</h2></div>
+    <p>1901 年，<strong>Alois Alzheimer</strong> 在德國精神病院觀察到 51 歲的女士 Auguste Deter，她記憶喪失、語言混亂、情緒不穩。Auguste 過世後，Alzheimer 解剖她的腦，發現了兩種異常：</p>
+    <ul>
+      <li>神經元<strong>之間</strong>有「大團塊」 → 即<strong>類澱粉斑塊 (amyloid plaques)</strong>，由 β-amyloid 蛋白組成。</li>
+      <li>神經元<strong>內部</strong>有「繩索狀纏結」 → 即<strong>神經纖維纏結 (neurofibrillary tangles)</strong>，由 p-tau 蛋白組成。</li>
+    </ul>
+    <p>1906 年他在會議上發表，這是醫學史上第一例「皮質的奇特疾病」記錄。今日全球約有 <strong>3,560 萬</strong>位 AD 患者，預估 2050 年將達 <strong>1.15 億</strong>。</p>
+
+    <h3>15.2.1 AD 在 EEG / MEG 的 三大特徵</h3>
+
+    <div class="interactive">
+      <div class="interactive-title">🔬 健康 vs AD：頻譜 / 複雜度 / 連結度 互動切換</div>
+      <p style="margin:8px 0;">點按鈕切換要看的特徵，會看到健康（藍）與 AD（紅）的差異：</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <button class="btn" data-ad-mode="spectrum">頻譜（power）</button>
+        <button class="btn secondary" data-ad-mode="complexity">複雜度</button>
+        <button class="btn secondary" data-ad-mode="connectivity">連結度</button>
+      </div>
+      <div class="svg-figure" style="padding:8px;">
+        <svg id="ad-spectrum" viewBox="0 0 640 280" style="width:100%;max-width:760px;"></svg>
+      </div>
+      <div id="ad-desc" class="callout info" style="margin-top:10px;"></div>
+    </div>
+
+    <h3>連結度量 — 為什麼一直被改良？</h3>
+    <p>研究 AD 最常用的就是<strong>連結度 (connectivity)</strong>，看的是腦區之間的「同步程度」。但有一個討厭的陷阱叫 <strong>容積傳導 (volume conduction)</strong>：同一個神經源頭，可能同時被相鄰的電極看到，造成「假的」高同步。為了去掉這種人為相關，學者一路改良：</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>量</th><th>定義（白話）</th><th>優點</th><th>缺點</th></tr></thead>
+        <tbody>
+          <tr><td><strong>c<sub>xy</sub>(f)</strong> 相干性</td><td>跨頻譜下兩訊號的線性相依性</td><td>傳統、好算</td><td>容易被容積傳導騙</td></tr>
+          <tr><td><strong>iCOH</strong> 想像部相干</td><td>只取相干性的虛部</td><td>對容積傳導免疫</td><td>當相位差為 0 或 kπ 時失靈</td></tr>
+          <tr><td><strong>PLI</strong> 相位延遲指標</td><td>看「誰領誰滯後」的不對稱性</td><td>不受相位延遲干擾</td><td>對小擾動不連續</td></tr>
+          <tr><td><strong>wPLI</strong> 加權 PLI</td><td>PLI 再加上虛部大小作權重</td><td>抗噪、抗 sample-size 偏差</td><td>計算成本稍高</td></tr>
+          <tr><td><strong>PLV</strong> 相位鎖值</td><td>固定頻率下相位差的一致性</td><td>解釋直觀</td><td>仍受容積傳導影響</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout key">
+      <div class="callout-title">📌 AD 的 EEG 結論</div>
+      <ul style="margin:6px 0;">
+        <li>α、β 頻段的相干性、PLI <strong>顯著下降</strong>。</li>
+        <li>θ、δ 頻段變化結論不一致（要分段討論）。</li>
+        <li>偵測精度：原始 MEG ≈ 51–61%，分離節律後 ≈ 67–77%。</li>
+      </ul>
+    </div>
+
+    <h3>15.2.2 ERP-based 監測 — P300 的變化</h3>
+    <p>在 odd-ball 範式（看到稀有刺激會誘發 P300），AD 患者的 <strong>P3b 振幅下降</strong>、<strong>相對於 P3a 的延遲明顯增加</strong>；P3a 本身則差異不大。這提供了臨床上輕便的 ERP 監測工具。</p>
+
+    <h3>15.2.3 圖論視角 — 把腦看成網路</h3>
+    <p>把每個電極當「節點」、把節點之間的同步度當「邊」，AD 的腦網路會出現：</p>
+    <ul>
+      <li><strong>群聚係數 (clustering coefficient) ↓</strong> — 局部小團體連結變弱。</li>
+      <li><strong>平均路徑長度 (path length) ↓</strong> — 但這是因為許多重要連結被「定點攻擊」拆掉，網路變得更隨機。</li>
+      <li>低 α 頻段最明顯，符合「Targeted Attack」模型，而不是隨機失效。</li>
+    </ul>
+
+    <div class="svg-figure">
+      <svg viewBox="0 0 540 220" style="max-width:640px;">
+        <text x="135" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">健康腦網路（小世界）</text>
+        <text x="405" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="#7f1d1d">AD 腦網路（更隨機）</text>
+        <!-- Healthy -->
+        <g transform="translate(20,40)">
+          <circle cx="50" cy="40" r="8" fill="#2563eb"/>
+          <circle cx="120" cy="20" r="8" fill="#2563eb"/>
+          <circle cx="180" cy="60" r="8" fill="#2563eb"/>
+          <circle cx="150" cy="130" r="8" fill="#2563eb"/>
+          <circle cx="70" cy="130" r="8" fill="#2563eb"/>
+          <circle cx="20" cy="80" r="8" fill="#2563eb"/>
+          <g stroke="#2563eb" stroke-width="2" opacity="0.7" fill="none">
+            <line x1="50" y1="40" x2="120" y2="20"/>
+            <line x1="120" y1="20" x2="180" y2="60"/>
+            <line x1="180" y1="60" x2="150" y2="130"/>
+            <line x1="150" y1="130" x2="70" y2="130"/>
+            <line x1="70" y1="130" x2="20" y2="80"/>
+            <line x1="20" y1="80" x2="50" y2="40"/>
+            <line x1="50" y1="40" x2="180" y2="60"/>
+            <line x1="20" y1="80" x2="120" y2="20"/>
+            <line x1="70" y1="130" x2="120" y2="20"/>
+          </g>
+        </g>
+        <!-- AD -->
+        <g transform="translate(290,40)">
+          <circle cx="50" cy="40" r="8" fill="#dc2626"/>
+          <circle cx="120" cy="20" r="8" fill="#dc2626"/>
+          <circle cx="180" cy="60" r="8" fill="#dc2626"/>
+          <circle cx="150" cy="130" r="8" fill="#dc2626"/>
+          <circle cx="70" cy="130" r="8" fill="#dc2626"/>
+          <circle cx="20" cy="80" r="8" fill="#dc2626"/>
+          <g stroke="#dc2626" stroke-width="1.8" opacity="0.55" fill="none" stroke-dasharray="3 3">
+            <line x1="50" y1="40" x2="150" y2="130"/>
+            <line x1="20" y1="80" x2="180" y2="60"/>
+            <line x1="120" y1="20" x2="70" y2="130"/>
+          </g>
+        </g>
+        <text x="270" y="210" text-anchor="middle" font-size="11" fill="#475569">健康有許多「局部緊密、跨區短路」的小世界連結；AD 連結被切斷後變稀疏、變隨機。</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ===== 15.3 ALS ===== -->
+  <section id="s-mnd" class="section">
+    <div class="section-header"><span class="section-number">15.3</span><h2>運動神經元疾病 (Motor Neuron Disease) — ALS</h2></div>
+    <p><strong>ALS（肌萎縮側索硬化症）</strong>，俗稱「漸凍人」，由 Stephen Hawking 廣為人知。它是「上、下運動神經元」<u>選擇性退化</u>的疾病，受影響的範圍從運動皮質、皮質脊髓束、運動網絡，最後甚至擴及非運動區（造成輕度執行功能下降，極端時形成 bvFTD）。</p>
+
+    <p>研究者把<strong>頻譜相干性 (spectral coherency, Eq. 15.1)</strong> 用 LDA 分類器套到約 100 位 ALS 患者的 8 個頻段 EEG，發現：</p>
+    <ul>
+      <li>受影響的運動區域（θ 頻段）<strong>連結度上升</strong>。</li>
+      <li>較少退化的頂葉、額葉（γ 頻段）<strong>連結度也上升</strong>。</li>
+      <li>解讀為「<strong>代償性過度活化</strong>」 — 神經元為了補救損失而過度溝通。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🧩 白話比喻</div>
+      就像辦公室裡有人請假了，其他人就得加班、彼此頻繁聯絡，<u>看起來</u>連結度反而更高。連結度「升高」不一定代表健康。
+    </div>
+  </section>
+
+  <!-- ===== 15.4 PD ===== -->
+  <section id="s-pd" class="section">
+    <div class="section-header"><span class="section-number">15.4</span><h2>帕金森氏症 (Parkinson's Disease)</h2></div>
+    <p>PD 是<strong>第二常見</strong>的神經退化症（AD 之後）。它源自<strong>黑質 (substantia nigra)</strong> 內多巴胺神經元死亡（黑質是「基底核」的一部分，負責動作的開關）。直到大多數多巴胺細胞失去功能，症狀才出現。</p>
+
+    <h3>典型症狀</h3>
+    <ul>
+      <li>顫抖（特別是<strong>休息時</strong>的手抖）</li>
+      <li>僵硬 (rigidity)、動作緩慢 (bradykinesia)、步態問題</li>
+      <li>常伴隨疲勞、憂鬱、疼痛、認知功能下降</li>
+    </ul>
+
+    <h3>15.4.1 EEG 連結度與顫抖強度</h3>
+    <p>Monajemi 等人提出<strong>適應性多任務擴散策略 (multitask diffusion)</strong>，結合 S-transform 相干性的虛部，估計手抖強度與腦電連結度的關係：</p>
+    <ul>
+      <li>強顫抖組與弱顫抖組的 EEG <strong>加權度中心性 WDC</strong> 在不同電極上有顯著差異。</li>
+      <li>當 λ ≈ 0.7（任務相關權重與相干權重的平衡）時，差異最明顯。</li>
+    </ul>
+
+    <h3>15.4.2 PD 的「過連結」傾向</h3>
+    <p>MEG 研究發現，<strong>PD 患者整體的靜息態功能連結度反而上升</strong>：早期主要在低 α 頻段（8–10 Hz）；隨疾病進展，4–30 Hz 整個都升高。β 頻段的耦合與動作緩慢嚴重度有關，θ 頻段與顫抖有關。</p>
+
+    <div class="callout info">
+      <div class="callout-title">⚡ DBS 深部腦刺激</div>
+      臨床上用 <strong>DBS (Deep Brain Stimulation)</strong> 電極植入丘腦下核，刺激多巴胺路徑來抑制顫抖。EEG 連結度可以監測 DBS 的效果。
+    </div>
+  </section>
+
+  <!-- ===== 15.5 HD ===== -->
+  <section id="s-hd" class="section">
+    <div class="section-header"><span class="section-number">15.5</span><h2>亨丁頓氏症 (Huntington's Disease)</h2></div>
+    <p>HD 跟 PD 一樣影響<strong>基底核</strong>，但是<strong>遺傳性</strong>的（mutant huntingtin, mHTT 蛋白）。患者出現「不自主的多餘動作」，逐漸難以控制四肢，甚至無法達成目標動作。</p>
+
+    <h3>EEG 變化（多項研究的共識）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>頻段</th><th>HD 相對於健康人</th><th>條件</th></tr></thead>
+        <tbody>
+          <tr><td>δ</td><td>清醒時 ↑</td><td>多研究一致</td></tr>
+          <tr><td>θ</td><td>NREM / REM ↓</td><td>5–7 Hz 區段（θ-α 邊界）</td></tr>
+          <tr><td>α</td><td>NREM ↑、REM ↓、清醒 8–9 Hz ↓</td><td>方向視睡期而定</td></tr>
+          <tr><td>β</td><td>NREM ↓</td><td>LORETA 證據</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:10px;">換句話說：<strong>HD 的 EEG 在不同睡眠期表現不同方向</strong>，所以做 HD 的研究，<u>多導睡眠圖 (PSG)</u> 比清醒態 EEG 更有用。</p>
+  </section>
+
+  <!-- ===== 15.6 CJD ===== -->
+  <section id="s-prion" class="section">
+    <div class="section-header"><span class="section-number">15.6</span><h2>普利昂疾病 (Prion Disease) — CJD</h2></div>
+    <p><strong>CJD（庫賈氏症）</strong>由「錯誤摺疊的蛋白」— <strong>prion</strong> — 引起。它像連鎖反應：一個錯誤摺疊的蛋白會把其他蛋白「拉成」相同錯摺，逐漸毀掉腦組織。CJD 有四型：散發性 (classical, sporadic)、變異型（吃了狂牛肉）、家族性、醫源性。</p>
+
+    <h3>EEG 的決定性特徵 — 週期性尖波 (PSWC)</h3>
+    <ul>
+      <li><strong>雙相或三相放電 (biphasic / triphasic)</strong>，初期局部、可能不對稱。</li>
+      <li>隨疾病惡化變成<strong>瀰漫性、同步、規律的 200–400 ms 銳波</strong>，每 0.5–1 秒一次。</li>
+      <li><strong>PSWC 在 sporadic CJD 出現比例約 2/3，陽性預測值 ≈ 95%</strong>。</li>
+      <li>PSWC 在睡眠時消失，使用鎮靜藥物或外部刺激會被壓抑。</li>
+    </ul>
+
+    <div class="svg-figure">
+      <svg viewBox="0 0 560 200" style="max-width:680px;">
+        <rect width="560" height="200" fill="#fafbff"/>
+        <text x="20" y="20" font-size="13" font-weight="700" fill="#1e3a8a">健康 EEG（節律連續）</text>
+        <text x="20" y="120" font-size="13" font-weight="700" fill="#7f1d1d">CJD EEG（週期性尖波 ≈ 每 0.5–1 秒 1 個）</text>
+        <!-- Healthy -->
+        <path d="M30 60 Q50 30 70 60 T110 60 T150 60 T190 60 T230 60 T270 60 T310 60 T350 60 T390 60 T430 60 T470 60 T510 60 T540 60" stroke="#2563eb" stroke-width="2" fill="none"/>
+        <!-- CJD periodic sharp waves -->
+        <g stroke="#dc2626" stroke-width="2" fill="none">
+          <path d="M30 160 L30 160 L60 150 L80 130 L82 90 L84 130 L86 150 L120 160 L150 160 L180 150 L200 130 L202 90 L204 130 L206 150 L240 160 L270 160 L300 150 L320 130 L322 90 L324 130 L326 150 L360 160 L390 160 L420 150 L440 130 L442 90 L444 130 L446 150 L480 160 L510 160 L530 150"/>
+        </g>
+        <line x1="30" y1="160" x2="540" y2="160" stroke="#94a3b8" stroke-dasharray="3 3"/>
+        <text x="280" y="195" text-anchor="middle" font-size="11" fill="#475569">這是 CJD 的標誌：在臨床上幾乎一看就辨識</text>
+      </svg>
+    </div>
+
+    <p>因為波形特徵明顯，CJD 用 EEG 自動分類的準確率非常高。Morabito 等人甚至以「<strong>連續小波 + 排列熵 + autoencoder + SVM</strong>」做出 CJD 與快速進行性失智的鑑別。</p>
+  </section>
+
+  <!-- ===== 15.7 FTD ===== -->
+  <section id="s-ftd" class="section">
+    <div class="section-header"><span class="section-number">15.7</span><h2>行為變異型額顳葉失智 (bvFTD)</h2></div>
+    <p>bvFTD 主要是<strong>人格、行為、判斷力的改變</strong>（不像 AD 主要是記憶），常出現在 50–60 多歲。額葉的「衝動控制、同理心、規劃」功能會被毀掉。</p>
+    <p>Dottori 等人提出<strong>加權符號互資訊 (wSMI, weighted Symbolic Mutual Information)</strong>，它有三個重點：</p>
+    <ol>
+      <li>把訊號轉成「上升 / 下降」的符號模式（k = 3、相隔 4/8/16/32 ms）。</li>
+      <li>對訊號之間的耦合形態不做太多假設，偵測<strong>非線性</strong>耦合。</li>
+      <li>權重設計能把「來自同源頭」的虛假相關剃掉，留下真實連結。</li>
+    </ol>
+    <p>結果：bvFTD 患者在<strong>額葉與顳葉</strong>的中長距離連結顯著降低 (hypoconnectivity)；wSMI 不只能分 bvFTD vs. 健康，連 bvFTD vs. AD 的鑑別效果也最好。</p>
+  </section>
+
+  <!-- ===== 15.8 LBD ===== -->
+  <section id="s-lbd" class="section">
+    <div class="section-header"><span class="section-number">15.8</span><h2>路易體失智 (Lewy Body Dementia)</h2></div>
+    <p>LBD（或 DLB）是<strong>第二常見的進行性失智</strong>（AD 之後）。腦中沉積「路易體 (Lewy bodies)」蛋白塊，會出現視幻覺、注意力起伏、PD 樣動作症狀。</p>
+    <ul>
+      <li>EEG <strong>整體變慢</strong>（compared 健康與 AD）。</li>
+      <li>θ 頻率的「主導頻率變動性 (DFV)」與<strong>認知波動 (CF)</strong> 正相關。</li>
+      <li>結合頻譜 + 功能連結度，可有高準確度分辨 DLB / AD / 健康。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 15.9 摘要 ===== -->
+  <section id="s-summary" class="section">
+    <div class="section-header"><span class="section-number">15.9</span><h2>本章摘要</h2></div>
+    <ul>
+      <li>神經退化性疾病有<u>共通</u>的特點：神經元死亡、特定毒蛋白堆積；但也有各自的 EEG 特徵。</li>
+      <li>分析這些疾病的 EEG 核心是<strong>連結度</strong>（相干性、iCOH、PLI、wPLI、PLV）與<strong>圖論</strong>指標。</li>
+      <li><strong>AD</strong>：α/β 連結度 ↓、P3b 振幅 ↓ 延遲 ↑、腦網路更隨機。</li>
+      <li><strong>ALS</strong>：θ/γ 頻段連結度 <u>上升</u>（代償性）。</li>
+      <li><strong>PD</strong>：整體連結度 <u>上升</u>，β 與動作緩慢相關、θ 與顫抖相關。</li>
+      <li><strong>HD</strong>：δ ↑（清醒）、θ/α/β 在不同睡眠期方向不同。</li>
+      <li><strong>CJD</strong>：週期性銳波 (PSWC) — EEG 的「指紋」。</li>
+      <li><strong>bvFTD</strong>：wSMI 在額顳區連結降低。</li>
+      <li><strong>LBD</strong>：EEG 慢化、主導頻率變動性與認知波動正相關。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🚀 下一章預告</div>
+      第 16 章會把焦點從「神經退化」轉到「<strong>精神 & 神經發育疾病</strong>」 — 思覺失調、憂鬱、躁鬱、ADHD、自閉症等，看 EEG 如何當生物標記。
+    </div>
+  </section>
+
+  <!-- ===== Quiz ===== -->
+  <section id="s-quiz">
+    <div id="quiz-host"><!-- Quiz 引擎將掛載於此 --></div>
+  </section>
+
+</main>
+
+<!-- ===== 頁尾版權 ===== -->
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">本網頁內容依教學目的整理自 Sanei & Chambers (2022) 第 15 章。</div>
+</footer>
+
+<!-- ===== JS ===== -->
+<script src="../assets/js/api.js?v=1"></script>
+<script src="../assets/js/quiz-engine.js?v=1"></script>
+<script src="../assets/data/chapter15-questions.js?v=1"></script>
+<script src="../assets/js/chapter15.js?v=1"></script>
+</body>
+</html>

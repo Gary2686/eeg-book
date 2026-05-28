@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十七章 — 腦機介面 (BCI) | EEG Signal Processing 互動教材</title>
+<meta name="description" content="EEG Signal Processing and Machine Learning, 2nd Edition — Chapter 17 Brain–Computer Interfacing Using EEG 互動式教學。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css?v=1">
+</head>
+<body>
+
+<!-- ===== 上方導覽 ===== -->
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html" class="site-logo">
+      <svg class="site-logo-icon" viewBox="0 0 32 32" fill="none">
+        <path d="M2 16 Q5 6 9 16 T16 16 T23 16 T30 16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+      </svg>
+      EEG 互動教材
+    </a>
+    <nav class="site-nav">
+      <a href="#s-overview">概覽</a>
+      <a href="#s-intro">17.1 引言</a>
+      <a href="#s-comp">17.2 EEG 成分</a>
+      <a href="#s-pipeline">17.3 流程</a>
+      <a href="#s-csp">17.7 CSP</a>
+      <a href="#s-multi">17.8 多類別</a>
+      <a href="#s-apps">17.10 應用</a>
+      <a href="#s-hybrid">17.12 Hybrid</a>
+      <a href="#s-summary">17.14 摘要</a>
+      <a href="#s-quiz">📝 測驗</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== Hero 章節首屏 ===== -->
+<section class="chapter-hero">
+  <div class="chapter-hero-inner">
+    <span class="chapter-tag">CHAPTER 17</span>
+    <h1 class="chapter-title">Brain–Computer Interfacing Using EEG</h1>
+    <p class="chapter-subtitle">用想像來操控電腦 — EEG 訊號處理最酷的應用</p>
+    <div class="chapter-objectives">
+      <h3>🎯 本章學習目標</h3>
+      <ul>
+        <li>了解 BCI 的定義、目標、與 EMG / EOG 等其他介面的差別。</li>
+        <li>說明 BCI 的三大類：主動 (active)、反應式 (reactive)、被動 (passive)。</li>
+        <li>掌握三大主流 paradigm：P300、SSVEP、Motor Imagery (MI) 的訊號特徵與優缺點。</li>
+        <li>了解 ERD / ERS 在 μ、β、γ 頻段的含義，並能解釋為何 MI 適合 BCI。</li>
+        <li>能描述完整 BCI 流程：感測 → 預處理 → 特徵抽取 (CSP) → 分類 (LDA/SVM/DL) → 反饋。</li>
+        <li>了解 CSP 的數學、優缺點與正則化版本。</li>
+        <li>認識 BCI 的代表性應用：拼字器 (Speller)、神經輔助、神經復健、Hybrid BCI。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<main class="page">
+
+  <!-- ===== 概覽 ===== -->
+  <section id="s-overview" class="section">
+    <div class="section-header"><span class="section-number">OVERVIEW</span><h2>本章地圖</h2></div>
+    <p>BCI（Brain–Computer Interface，腦機介面）讓人類<strong>不用動手</strong>就能與外界溝通。漸凍人靠它打字、癱瘓病人靠它動輪椅、健康人靠它打電動。BCI 是 EEG 訊號處理「真實落地」的代表領域，把前面學過的全部技術 — 雜訊去除、頻譜估計、ICA、機器學習 — 通通用上。</p>
+
+    <div class="callout key">
+      <div class="callout-title">🧭 你會在這章獲得</div>
+      <ul style="margin:6px 0;">
+        <li>一張完整的「<strong>BCI 系統流程圖</strong>」互動。</li>
+        <li>三大 paradigm（P300、SSVEP、MI）的<strong>切換比較</strong>互動。</li>
+        <li>了解 ERD / ERS、Common Spatial Pattern (CSP) 等核心方法。</li>
+        <li>對 BCI 的最新應用（speller、Robotic wheelchair、Hybrid EEG-fNIRS）有概念。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 17.1 引言 ===== -->
+  <section id="s-intro" class="section">
+    <div class="section-header"><span class="section-number">17.1</span><h2>引言 — BCI 是什麼？</h2></div>
+    <p>BCI（也稱 BMI, Brain–Machine Interfacing）是<strong>人類電腦介面 (HCI)</strong> 的一支：用大腦的電活動直接驅動外部裝置，<strong>繞過正常的肌肉輸出路徑</strong>。</p>
+
+    <div class="callout info">
+      <div class="callout-title">📜 簡史</div>
+      <ul style="margin:6px 0;">
+        <li><strong>1924</strong>：Hans Berger 首次紀錄人類 EEG。</li>
+        <li><strong>1973–77</strong>：Vidal 發表第一篇 BCI 研究。</li>
+        <li><strong>1999</strong>：Nicolelis 首次示範皮質神經元能直接控制機械手臂。</li>
+        <li><strong>2000s</strong>：Berlin BCI、Wadsworth、Graz、Martigny 等實驗室帶動 BCI 蓬勃發展。</li>
+      </ul>
+    </div>
+
+    <h3>BCI 的三大分類（依目的）</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>Active（主動）</h4>
+        <div class="pros">使用者「主動想像動作」</div>
+        <div class="pros">代表：Motor Imagery (MI)</div>
+        <div class="cons">需訓練、訊號難捕捉</div>
+      </div>
+      <div class="compare-card">
+        <h4>Reactive（反應式）</h4>
+        <div class="pros">系統給刺激、量反應</div>
+        <div class="pros">代表：P300 speller、SSVEP</div>
+        <div class="cons">使用者要等刺激</div>
+      </div>
+      <div class="compare-card">
+        <h4>Passive（被動）</h4>
+        <div class="pros">不需使用者意圖</div>
+        <div class="pros">代表：疲勞 / 注意力監測</div>
+        <div class="cons">通常不是「控制」，是『監測』</div>
+      </div>
+    </div>
+
+    <h3>侵入 vs 非侵入</h3>
+    <ul>
+      <li><strong>EEG（非侵入）</strong>：頭皮電極，安全、可大量使用，但解析度差。</li>
+      <li><strong>ECoG（皮質腦波）</strong>：電極放在腦表面，雜訊低、頻段廣，但需手術。</li>
+      <li><strong>單神經元紀錄</strong>：植入電極，資訊量最大，臨床風險最高。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 17.2 BCI EEG components ===== -->
+  <section id="s-comp" class="section">
+    <div class="section-header"><span class="section-number">17.2</span><h2>BCI 相關的 EEG 成分</h2></div>
+
+    <h3>17.2.1 Readiness Potential (RP) — Bereitschaftspotential</h3>
+    <p>RP 是<strong>動作前</strong>出現的「準備電位」 — 由 Kornhuber & Deecke 於 1964 年在 Freiburg 發現。RP 振幅比 α 波小 10–100 倍，要靠<strong>對齊動作時間點平均</strong>才看得到。</p>
+
+    <h3>17.2.2 ERD / ERS — 運動想像的主角</h3>
+    <div class="callout key">
+      <div class="callout-title">📌 ERD / ERS</div>
+      <ul style="margin:6px 0;">
+        <li><strong>ERD (Event-Related Desynchronization)</strong>：動作開始前後，對側 (contralateral) Rolandic 區的 <u>μ (8–13 Hz)、β (14–28 Hz)</u> 節律「短暫變弱」 — 因為神經元被叫起來執行任務，不再同步休息。</li>
+        <li><strong>ERS (Event-Related Synchronization)</strong>：動作結束後 μ、β 反彈強化（β 大約 16–26 Hz，動作後 600 ms 內 — 又稱 PMBS）。</li>
+        <li><strong>γ-ERS</strong>：動作前的 γ 振盪，可能是感覺整合與動作整合的『載波』。</li>
+      </ul>
+    </div>
+
+    <p>ERD 的計算公式：</p>
+    <p style="background:#f1f5f9;padding:10px 14px;border-radius:6px;font-family:'Courier New',monospace;">
+      ERD_Level(f, n) = (P(f, n) − P_ref(f)) / P_ref(f)
+    </p>
+    <p>P(f, n) 是某時間-頻率點的能量，P_ref(f) 是參考時段（休息）的能量。</p>
+
+    <h3>17.2.4 Gamma ERS</h3>
+    <p>γ (35–45 Hz) 振盪在<strong>視覺刺激後</strong>或<strong>動作前</strong>很明顯，可能是感覺整合的『載波』。可以用 EMD（經驗模態分解）加強 γ-ERS 的偵測。</p>
+
+    <h3>17.2.6 ERP — P300, SSVEP, SCP</h3>
+    <p>P300 在<u>稀有刺激</u> (odd-ball) 後約 300 ms 出現，是 BCI 最廣為使用的 ERP。SSVEP 是<u>固定頻率閃爍刺激</u>誘發的穩態反應，可從枕葉電極穩定取得。SCP（slow cortical potential）是長達數秒的緩慢電位偏移，可訓練自主調節（適合 locked-in 患者）。</p>
+  </section>
+
+  <!-- ===== BCI Pipeline & Paradigm interactive ===== -->
+  <section id="s-pipeline" class="section">
+    <div class="section-header"><span class="section-number">17.3</span><h2>BCI 系統流程與三大 Paradigm（互動）</h2></div>
+
+    <div class="interactive">
+      <div class="interactive-title">⚙️ BCI 系統流程 — 點各方塊看說明</div>
+      <div class="svg-figure">
+        <svg id="bci-pipeline" viewBox="0 0 760 220" style="width:100%;max-width:880px;"></svg>
+        <div class="svg-caption">點藍色方塊查看每階段的細節。</div>
+      </div>
+      <div id="bci-stage-desc" class="callout info" style="margin-top:14px;">點選流程中的方塊以了解該階段。</div>
+    </div>
+
+    <div class="interactive">
+      <div class="interactive-title">🧪 P300 vs SSVEP vs MI 三種 Paradigm 切換</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <button class="btn" data-bci="p300">P300（odd-ball）</button>
+        <button class="btn secondary" data-bci="ssvep">SSVEP（固定頻率閃爍）</button>
+        <button class="btn secondary" data-bci="mi">Motor Imagery（想像動作）</button>
+      </div>
+      <div class="svg-figure">
+        <svg id="bci-paradigm" viewBox="0 0 720 260" style="width:100%;max-width:860px;"></svg>
+      </div>
+      <div id="bci-paradigm-desc" class="callout info" style="margin-top:14px;"></div>
+    </div>
+
+    <h3>三大 Paradigm 比較</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Paradigm</th><th>核心訊號</th><th>電極位置</th><th>訓練</th><th>典型應用</th></tr></thead>
+        <tbody>
+          <tr><td>P300</td><td>稀有刺激後 ~300 ms 的正向波</td><td>Pz / Cz</td><td>幾乎不需</td><td>拼字器 speller、是非題</td></tr>
+          <tr><td>SSVEP</td><td>固定頻率閃爍誘發的穩態反應</td><td>Oz / O1 / O2 / PO 等枕區</td><td>幾乎不需</td><td>多選 (QWERTY speller)、選單</td></tr>
+          <tr><td>Motor Imagery (MI)</td><td>μ、β 的 ERD / ERS</td><td>C3 / Cz / C4 運動皮質</td><td>需訓練（數天）</td><td>連續控制（輪椅、機械手）</td></tr>
+          <tr><td>SCP</td><td>數秒緩慢電位偏移</td><td>Cz 為主</td><td>需大量訓練</td><td>二元選擇（locked-in）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== 17.7 CSP ===== -->
+  <section id="s-csp" class="section">
+    <div class="section-header"><span class="section-number">17.7</span><h2>Common Spatial Pattern (CSP) — MI 的「殺手鐧」</h2></div>
+    <p>CSP 在 2000 年由 Ramoser 等人引入 BCI，是<strong>運動想像分類的標配</strong>。它要解決的問題是：在多通道 EEG 中找一個<strong>空間濾波器 w</strong>，讓「左手想像」變異最大、「右手想像」變異最小（或反之）。</p>
+
+    <p>數學上是求 Rayleigh 商的極值：</p>
+    <p style="background:#f1f5f9;padding:10px 14px;border-radius:6px;font-family:'Courier New',monospace;">
+      J(w) = (wᵀ C₁ w) / (wᵀ C₂ w)
+    </p>
+    <p>其中 C₁, C₂ 是兩類別的空間共變異數矩陣。這個極值問題可寫成廣義特徵值方程：<strong>C₁ w = λ C₂ w</strong>。</p>
+
+    <div class="callout warning">
+      <div class="callout-title">⚠️ CSP 的兩大缺點</div>
+      <ol style="margin:6px 0;">
+        <li><strong>容易過擬合</strong> — 訓練樣本少時更明顯。</li>
+        <li><strong>對雜訊敏感</strong> — 偶發大干擾會嚴重影響 w。</li>
+      </ol>
+      <p style="margin:6px 0;">解法：正則化 CSP（Tikhonov、generic learning、composite、invariant、l1/l2 norm 等 11 種變形）。其中 <strong>Tikhonov 加權正則化 CSP</strong> 性能最佳，平均提升 3–4%，中位數提升 10%。</p>
+    </div>
+
+    <h3>實務</h3>
+    <ul>
+      <li>實作前先 bandpass 到 <strong>8–30 Hz</strong>，再做 CSP。</li>
+      <li>電極通常選 <strong>運動皮質周圍的 centro-parietal</strong> 區域。</li>
+      <li>分類器：LDA、SVM、近年加上 <strong>深度神經網路 + transfer learning</strong>。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 17.8 Multiclass ===== -->
+  <section id="s-multi" class="section">
+    <div class="section-header"><span class="section-number">17.8</span><h2>多類別 BCI</h2></div>
+    <p>真實 BCI 常需要超過兩類別（如左手、右手、腳、舌四種想像）。Barachant 等人提出兩個基於<strong>黎曼幾何 (Riemannian geometry)</strong> 的方法：</p>
+    <ol>
+      <li><strong>距 Riemannian 平均</strong>：直接在 SPD 矩陣空間找最近的類別。</li>
+      <li><strong>Riemannian 切空間</strong>：把 SPD 矩陣對映到歐式切空間，再做傳統分類器。</li>
+    </ol>
+    <p>在 BCI Competition IV 的 9 位受試者 4 類別資料上，兩者皆優於 LDA 與多類別 CSP。</p>
+
+    <div class="callout tip">
+      <div class="callout-title">💡 為什麼黎曼幾何？</div>
+      共變異數矩陣本身是「對稱正定矩陣」(SPD)，住在<u>彎曲</u>的流形上，不是平的歐式空間。直接在歐式空間做距離會失真；黎曼幾何尊重這個彎曲，距離量得更準。
+    </div>
+  </section>
+
+  <!-- ===== 17.10 Recent BCI Applications ===== -->
+  <section id="s-apps" class="section">
+    <div class="section-header"><span class="section-number">17.10</span><h2>近期 BCI 應用</h2></div>
+
+    <h3>P300 拼字器（Speller）</h3>
+    <p>螢幕呈現 6×6 字母網格，逐列、逐欄高亮。使用者注視目標字元，那個包含目標的<u>列</u>與<u>欄</u>會誘發較大的 P300 — 交叉處即為目標字母。</p>
+
+    <h3>SSVEP QWERTY 拼字器</h3>
+    <p>30 個 LED 以不同頻率閃爍。使用者注視某字母，枕葉 EEG 會出現對應頻率的穩態反應。最快可達 <strong>9.39 字母 / 分鐘</strong>，平均正確率 87.6%，ITR 約 40.7 bits/min。最新研究結合 filter-bank CCA 達到 <strong>~267–325 bpm</strong>，是最快紀錄。</p>
+
+    <h3>輪椅 / 機械手控制</h3>
+    <p><strong>RoboChair</strong> 從 1996 開始，結合 ERP 與神經反饋；剩下的挑戰是指令稀疏、可靠性低、心智負擔大、P300 漂移。</p>
+
+    <h3>其他</h3>
+    <ul>
+      <li><strong>BBI (Brain-to-Brain Interface)</strong>：發送者想動作，接收者經 TMS 被刺激同名運動皮質，做出對應動作。</li>
+      <li><strong>謊言偵測</strong>：BGD（bootstrapped geometric difference）+ SVM，視覺/聽覺刺激下 P300 結合圖論分析，準確率 83–89%。</li>
+      <li><strong>腦指紋（brain fingerprinting）</strong>：用 P300 偵測使用者腦中「特定知識的留存」。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 17.12 Hybrid BCI ===== -->
+  <section id="s-hybrid" class="section">
+    <div class="section-header"><span class="section-number">17.12</span><h2>多模態 / Hybrid BCI</h2></div>
+    <p>EEG 空間解析度差，但時間解析度好；fMRI、fNIRS 反之。把<strong>兩者結合</strong>可大幅提升 BCI 表現。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>組合</th><th>互補</th><th>典型用法</th></tr></thead>
+        <tbody>
+          <tr><td>EEG + fMRI</td><td>毫秒 + 毫米</td><td>tensor + HOPLS：以 fMRI 駕馭 EEG 特徵，提升 P300 speller</td></tr>
+          <tr><td>EEG + fNIRS</td><td>毫秒 + 中等空間、便宜</td><td>心算 / 文字鏈短任務，shrinkage LDA，正確率 80–90%</td></tr>
+          <tr><td>EEG + MEG</td><td>毫秒 + 不受顱骨影響</td><td>運動想像，4–40 Hz bandpass + LDA</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-title">📐 ITR (Information Transfer Rate)</div>
+      <p style="margin:6px 0;font-family:'Courier New',monospace;">
+        ITR = m · [log₂N + P·log₂P + (1−P)·log₂((1−P)/(N−1))]
+      </p>
+      m = 每分鐘 trial 數；N = 命令數；P = 分類正確率（0~1）。是評估 BCI 速度的標準指標。
+    </div>
+  </section>
+
+  <!-- ===== 17.14 Summary ===== -->
+  <section id="s-summary" class="section">
+    <div class="section-header"><span class="section-number">17.14</span><h2>本章摘要</h2></div>
+    <ul>
+      <li>BCI 是<u>不靠肌肉</u>、直接用 EEG 控制電腦或裝置的技術，已從研究進入臨床與商業。</li>
+      <li>三大 paradigm：<strong>P300（反應式）、SSVEP（反應式、快）、Motor Imagery（主動、需訓練）</strong>。</li>
+      <li>核心 EEG 成分：RP、ERD/ERS（μ/β）、γ-ERS、long δ、ERP（P300）、SSVEP、SCP。</li>
+      <li>方法核心：<strong>CSP（含正則化）</strong>、Riemannian 幾何分類器、深度學習 + transfer learning。</li>
+      <li>系統流程：<u>感測 → bandpass → ICA / artefact removal → 特徵抽取 (CSP) → 分類 (LDA/SVM/DL) → 反饋</u>。</li>
+      <li>多模態（EEG + fNIRS / fMRI / MEG）能提升 BCI 表現，但實用度受設備限制。</li>
+      <li>應用：speller、機械手、輪椅、神經復健、謊言偵測、brain-to-brain。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🚀 下一章預告</div>
+      第 18 章探討「<strong>多模態 EEG + fMRI / fNIRS / MEG 同步分析</strong>」 — 包括如何把 fMRI 的梯度偽影與 BCG 偽影從 EEG 中去掉。
+    </div>
+  </section>
+
+  <!-- ===== Quiz ===== -->
+  <section id="s-quiz">
+    <div id="quiz-host"><!-- Quiz 引擎將掛載於此 --></div>
+  </section>
+
+</main>
+
+<!-- ===== 頁尾版權 ===== -->
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">本網頁內容依教學目的整理自 Sanei & Chambers (2022) 第 17 章。</div>
+</footer>
+
+<!-- ===== JS ===== -->
+<script src="../assets/js/api.js?v=1"></script>
+<script src="../assets/js/quiz-engine.js?v=1"></script>
+<script src="../assets/data/chapter17-questions.js?v=1"></script>
+<script src="../assets/js/chapter17.js?v=1"></script>
+</body>
+</html>

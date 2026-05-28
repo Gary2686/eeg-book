@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第四章 — EEG 訊號處理基礎 | EEG Signal Processing 互動教材</title>
+<meta name="description" content="EEG Signal Processing and Machine Learning, 2nd Edition — Chapter 4 Fundamentals of EEG Signal Processing 互動式教學：非線性、非平穩性、Wavelet、Wigner-Ville、EMD、DTF、Filtering、PCA/SVD。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css?v=1">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html" class="site-logo">
+      <svg class="site-logo-icon" viewBox="0 0 32 32" fill="none">
+        <path d="M2 16 Q5 6 9 16 T16 16 T23 16 T30 16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+      </svg>
+      EEG 互動教材
+    </a>
+    <nav class="site-nav">
+      <a href="#s-overview">概覽</a>
+      <a href="#s-intro">4.1 引言</a>
+      <a href="#s-nonlinear">4.2 非線性</a>
+      <a href="#s-nonstat">4.3 非平穩</a>
+      <a href="#s-segment">4.4 分段</a>
+      <a href="#s-transform">4.5 變換 / Wavelet / WVD</a>
+      <a href="#s-emd">4.6 EMD</a>
+      <a href="#s-mvar">4.7 MVAR / DTF</a>
+      <a href="#s-filter">4.8 濾波</a>
+      <a href="#s-pca">4.9 PCA / SVD</a>
+      <a href="#s-summary">4.10 摘要</a>
+      <a href="#s-quiz">📝 測驗</a>
+    </nav>
+  </div>
+</header>
+
+<section class="chapter-hero">
+  <div class="chapter-hero-inner">
+    <span class="chapter-tag">CHAPTER 04</span>
+    <h1 class="chapter-title">Fundamentals of EEG Signal Processing</h1>
+    <p class="chapter-subtitle">EEG 訊號處理基礎：把非線性、非平穩、又被雜訊污染的腦波，拆解到時間-頻率-空間三個維度。</p>
+    <div class="chapter-objectives">
+      <h3>🎯 本章學習目標</h3>
+      <ul>
+        <li>了解 EEG 為何屬於「非線性 + 非平穩」訊號，並能說出常用的量化指標（skewness、kurtosis、negentropy、KL 距離）。</li>
+        <li>掌握五種訊號分段準則 (d₁~d₅) 的精神：自相關、kurtosis、週期圖、AR 預測誤差、AR 頻譜差。</li>
+        <li>能比較 STFT、Wavelet、Synchro-Squeezed Wavelet、Wigner-Ville 在時頻分析上的優劣。</li>
+        <li>了解 EMD 的 sifting 過程與 IMF 的概念。</li>
+        <li>能解釋 Coherency、MVAR、DTF 的關係，並知道 DTF 為何能判斷『誰在帶動誰』。</li>
+        <li>會使用自適應濾波（LMS、RLS）抑制 EEG 雜訊與偽訊。</li>
+        <li>掌握 PCA / SVD 的核心想法，能說明它在訊號／雜訊子空間分離的角色。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<main class="page">
+
+  <!-- ===== 概覽 ===== -->
+  <section id="s-overview" class="section">
+    <div class="section-header"><span class="section-number">OVERVIEW</span><h2>本章地圖</h2></div>
+    <p>第 4 章是<strong>所有後續章節的工具箱</strong>。EEG 是非線性、非平穩、低 SNR 的訊號，沒有單一工具可以解；本章把訊號處理界最重要的工具一一搬出來，告訴你它們解的問題是什麼、何時用、怎麼選。</p>
+    <div class="callout key">
+      <div class="callout-title">🧭 把工具按目標分組</div>
+      <ol style="margin:6px 0;">
+        <li><strong>特徵化：</strong>非線性指標（skewness、kurtosis、entropy）；非平穩 → 短窗 / quasi-stationary。</li>
+        <li><strong>分段：</strong>5 種 dissimilarity 準則（d₁ 自相關、d₂ kurtosis、d₃ 週期圖、d₄ AR 殘差、d₅ AR 頻譜）。</li>
+        <li><strong>時頻分析：</strong>STFT / Wavelet / SSWT / Wigner-Ville / EMD。</li>
+        <li><strong>連結／因果：</strong>Coherency / MVAR / DTF。</li>
+        <li><strong>清雜訊：</strong>FIR/IIR/Notch；自適應 LMS、RLS。</li>
+        <li><strong>子空間：</strong>PCA、SVD（後續再加 ICA、CSP）。</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ===== 4.1 引言 ===== -->
+  <section id="s-intro" class="section">
+    <div class="section-header"><span class="section-number">4.1</span><h2>引言 — EEG 訊號處理的工作面</h2></div>
+    <ul>
+      <li>時間域、頻率域、空間域、多向 (multiway) 處理都會用。</li>
+      <li>把 EEG 視覺化為腦表面圖 (topograph)；分離出單一目標源（如癲癇灶、ERP 來源）。</li>
+      <li>BCI 應用愈來愈仰賴深度學習 + 高頻寬資料 + 雲端協作。</li>
+      <li>本章符號慣例：t 為連續時間、n 為離散時間樣本（取樣週期 T = 1）。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 4.2 非線性 ===== -->
+  <section id="s-nonlinear" class="section">
+    <div class="section-header"><span class="section-number">4.2</span><h2>媒介的非線性 (Nonlinearity of the Medium)</h2></div>
+    <p>頭部把皮質下的源訊號<strong>非線性地</strong>混合到頭皮上。MEG 比較好一點，因為頭組織的磁導率差異小；EEG 則受導電率變化的強烈影響。</p>
+    <p>常見的<strong>非線性指標</strong>來自混沌理論：dissimilarity、attractor dimension、最大 Lyapunov 指數 (LLE)。這些可在第 11 章看到實際應用。</p>
+  </section>
+
+  <!-- ===== 4.3 非平穩 ===== -->
+  <section id="s-nonstat" class="section">
+    <div class="section-header"><span class="section-number">4.3</span><h2>非平穩性 (Nonstationarity)</h2></div>
+    <p>嚴格平穩要求訊號的整體分布不隨時間改變；通常我們只需要 wide-sense stationary（平均、變異不變）。</p>
+    <p>EEG 的平均與共變異會隨時間改變（閉眼→睜眼、清醒→入睡、正常→癲癇…），所以我們稱它為「quasi-stationary」，<strong>多以 10 秒短窗</strong>視為近似平穩。</p>
+
+    <h3>四個常用的『高階矩 / 熵』指標</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>指標</th><th>定義</th><th>意義</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Skewness</strong></td><td>E[(x−μ)³] / σ³</td><td>分布不對稱程度；Gaussian 為 0；右偏為負、左偏為正（依書本定義）。</td></tr>
+          <tr><td><strong>Kurtosis</strong></td><td>m₄ / m₂² − 3（excess）</td><td>分布尖度。Gaussian 為 0；尖峰重尾 &gt; 0；扁平 &lt; 0。癲癇 spike 高 kurtosis。</td></tr>
+          <tr><td><strong>Negentropy</strong></td><td>H(x_Gauss) − H(x)</td><td>距離 Gaussian 多遠；ICA 與獨立性的常用指標。永為非負。</td></tr>
+          <tr><td><strong>KL Distance</strong></td><td>∫ p₁ log(p₁/p₂) dz</td><td>兩個分布的差距；非對稱、不滿足三角不等式，但常用作分布相似度。</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-title">🧠 熵 (Entropy) 在 EEG 的角色</div>
+      <p style="margin:6px 0;">當大腦同步性提高（例如癲癇接近發作），EEG 的熵會下降；多尺度波動色散熵 (multiscale fluctuation-based dispersion entropy) 是近年新發展的指標。</p>
+    </div>
+  </section>
+
+  <!-- ===== 4.4 分段 ===== -->
+  <section id="s-segment" class="section">
+    <div class="section-header"><span class="section-number">4.4</span><h2>訊號分段 (Signal Segmentation)</h2></div>
+    <p>臨床判讀常把 EEG 切成「同質」段：例如癲癇病人可切成 preictal、ictal、postictal 三段。如何自動找邊界？課文給出五種 dissimilarity 準則：</p>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-body"><strong>d₁ — 自相關差</strong><small>比較相鄰窗的自相關 r_x(k, m) vs r_x(k, m−1)。</small></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><strong>d₂ — Kurtosis 差</strong><small>正常節律 kurtosis 低、癲癇/ERP kurtosis 高。</small></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><strong>d₃ — 週期圖差</strong><small>對自相關做 Fourier 變換得到 S_x(ω,m)，比較相鄰段頻譜差。</small></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-body"><strong>d₄ — AR 預測殘差</strong><small>用第 m−1 段的 AR 係數預測第 m 段第 1 個樣本；殘差大就是邊界。對殘差再做梯度取極大可得邊界 spike。</small></div></div>
+      <div class="step"><div class="step-num">5</div><div class="step-body"><strong>d₅ — AR 頻譜差</strong><small>以 AR 模型估的頻譜替代 STFT，更穩健的 d₃。</small></div></div>
+    </div>
+    <p>把每個 d(m) 與經驗閾值 η_T 比較，超過就視為邊界。這些方法在無專家標註時尤其有用。</p>
+  </section>
+
+  <!-- ===== 4.5 變換 / Wavelet / WVD ===== -->
+  <section id="s-transform" class="section">
+    <div class="section-header"><span class="section-number">4.5</span><h2>訊號變換與聯合時頻分析</h2></div>
+
+    <h3>STFT — 滑動視窗的傅立葉</h3>
+    <p>X(n, ω) = ∫ x(τ)·w(n−τ)·e^(−jωτ) dτ。把 EEG 切成短時間視窗，每個視窗做 FFT，得到一張「時間 × 頻率」的時頻圖。</p>
+    <div class="callout warning">
+      <div class="callout-title">⚠️ 海森堡測不準</div>
+      σ²_t · σ²_ω ≥ 1/4：時間越窄，頻率越糊；頻率越精，時間越糊。<strong>STFT 用固定大小的視窗，無法同時兼顧高/低頻。</strong>
+    </div>
+
+    <h3>4.5.1 連續 Wavelet Transform (CWT)</h3>
+    <p>Morlet-Grossmann 定義：W(a, b) = a^(−1/2) ∫ f(t)·ψ*((t−b)/a) dt。a 是尺度（控制頻率）、b 是時間位移。</p>
+    <ul>
+      <li><strong>多尺度</strong>：高頻用窄視窗、低頻用寬視窗 → 自動適應海森堡。</li>
+      <li><strong>離散 Wavelet (DWT)</strong>：用尺度二倍化 (dyadic) 與多解析度分析 (MRA)；可用快速濾波-降採樣演算法實作。</li>
+      <li>應用：癲癇偵測（特別是新生兒）、神經元電位建模、ERP/EP 偵測。</li>
+    </ul>
+
+    <h3>🌊 互動：FFT vs Wavelet vs Wigner-Ville 概念比較</h3>
+    <div class="interactive">
+      <div class="interactive-title">🔍 三種時頻分析的「視窗形狀」差別</div>
+      <div class="svg-figure">
+        <svg id="tf-compare" viewBox="0 0 720 280" style="width:100%;max-width:780px;background:#fafbff;border-radius:8px;"></svg>
+        <div class="svg-caption">每個方格代表時頻平面上的一個「分析窗」。比較窗的形狀與大小。</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn tf-btn" data-mode="fft">STFT（固定視窗）</button>
+        <button class="btn secondary tf-btn" data-mode="wavelet">Wavelet（多尺度）</button>
+        <button class="btn secondary tf-btn" data-mode="wvd">Wigner-Ville（最佳解析，但有交叉項）</button>
+      </div>
+      <div id="tf-info" class="callout info" style="margin-top:14px;"></div>
+    </div>
+
+    <h3>4.5.2 Synchro-Squeezed Wavelet Transform (SSWT)</h3>
+    <p>SSWT 是把 CWT 做後處理：先估計候選瞬時頻率 (IF)，再把能量「擠回」真實 IF 的位置，使時頻圖更清晰。重點公式：</p>
+    <p style="background:#f1f5f9;padding:10px;border-radius:6px;font-family:Inter,monospace;">
+      ω(a, b) = −i / W(a, b) · ∂W(a, b)/∂b
+    </p>
+    <p>由 ω(a, b) 把 W(a, b) 重新分配到最接近的頻率 bin Tf(ωₗ, b)；可重建原訊號。對非平穩、非線性訊號特別有用。</p>
+
+    <h3>4.5.3 Wigner-Ville 分布 (WVD)</h3>
+    <p>WVD 是 ambiguity function 的二維傅立葉變換，<strong>時頻解析度最佳</strong>，但對「多分量」訊號會產生<strong>交叉項 (cross-terms)</strong>。常見處理：</p>
+    <ul>
+      <li><strong>Pseudo-WVD (PWVD)：</strong>對自相關加窗 w(τ)。</li>
+      <li><strong>Cohen's class：</strong>把 WVD 與一個 2D 低通核 Φ(t, ω) 卷積壓抑交叉項。</li>
+      <li><strong>Choi-Williams：</strong>採用 Φ(τ, ν) = exp(−ν²τ²/(4π²σ)) 的鐘形核。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 4.6 EMD ===== -->
+  <section id="s-emd" class="section">
+    <div class="section-header"><span class="section-number">4.6</span><h2>Empirical Mode Decomposition (EMD)</h2></div>
+    <p>EMD 不假設任何基底函數，<strong>直接由資料</strong>把訊號分解為一系列「Intrinsic Mode Function (IMF)」。底層理論是 Hilbert-Huang Transform (HHT)。</p>
+
+    <h3>Sifting 流程</h3>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-body"><strong>找所有局部極值</strong><small>maxima 與 minima。</small></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><strong>用 cubic spline 連 maxima → 上包絡；連 minima → 下包絡</strong><small>確保整個訊號介於上下包絡之間。</small></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><strong>計算平均 m₁</strong><small>m₁ = (上包絡 + 下包絡) / 2。</small></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-body"><strong>取差 d₁ = x(t) − m₁</strong><small>d₁ 理想上應該已對稱、所有 maxima &gt; 0、minima &lt; 0。</small></div></div>
+      <div class="step"><div class="step-num">5</div><div class="step-body"><strong>重複以 d₁ 為新資料 sifting，直到滿足 IMF 條件</strong><small>得到第一個 IMF：C₁ = d₁ₖ。再用 x(t) − C₁ 繼續找下一 IMF。</small></div></div>
+    </div>
+
+    <div class="callout key">
+      <div class="callout-title">🌀 IMF 的特性</div>
+      <ul style="margin:6px 0;">
+        <li>每個 IMF 表現為「<strong>瞬時振幅與瞬時頻率都可變</strong>」的簡單振盪。</li>
+        <li>EMD 是<strong>自適應</strong>、不需先選基底（不像 Wavelet 要選 mother wavelet）。</li>
+        <li>常見問題：mode mixing → 引入 <strong>EEMD (Ensemble EMD)</strong> 加白雜訊平均；或 <strong>CEEMDAN</strong> 提供完整重建與更佳分離。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 4.7 MVAR / DTF ===== -->
+  <section id="s-mvar" class="section">
+    <div class="section-header"><span class="section-number">4.7</span><h2>連結性、MVAR 與 DTF</h2></div>
+
+    <h3>Coherency（頻譜同步度）</h3>
+    <p>Coh²ᵢⱼ(ω) = |E[Cᵢⱼ(ω)]|² / (E[Cᵢᵢ]·E[Cⱼⱼ])，其中 Cᵢⱼ = Xᵢ·X*ⱼ 是頻譜互相關。可偵測零時延或固定時延的同步，但<strong>無法判別方向</strong>。</p>
+
+    <h3>Granger Causality</h3>
+    <p>「若加上 X 的過去能更好預測 Y，則說 X causes Y」。雙變量 AR 即可計算；多通道時計算成本高且不夠有效。</p>
+
+    <h3>DTF (Directed Transfer Function)</h3>
+    <p>DTF 由 MVAR 模型的轉移矩陣 H(ω) = L⁻¹(ω)·σ² I 推出：</p>
+    <p style="background:#f1f5f9;padding:10px;border-radius:6px;font-family:Inter,monospace;">
+      Θ²ᵢⱼ(ω) = |Hᵢⱼ(ω)|²
+    </p>
+    <p>若 Θ²ᵢⱼ(ω) &gt; 0，表示電極 i 在頻率 ω 上對 j 有因果影響。<strong>DTF 比 Coherency 多了方向資訊</strong>，是研究 EEG 內訊息流動的標準工具。</p>
+    <ul>
+      <li>用 LWR 演算法估 MVAR 係數；用 AIC 選階數。</li>
+      <li>時變版本 SDTF（短窗 DTF）可用於追蹤腦內活動隨時間的傳遞變化，例如手指動作前 1 秒 Cz → C3 的傳遞。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 4.8 濾波 ===== -->
+  <section id="s-filter" class="section">
+    <div class="section-header"><span class="section-number">4.8</span><h2>濾波與去雜訊</h2></div>
+    <p>EEG 包含 &lt; 100 Hz（多在 30 Hz 以下）資訊，所以高頻雜訊用低通就能去；50/60 Hz 電源用 Notch；放大器頻率響應的非線性可用 equalizing filter 補償。</p>
+
+    <h3>🛠️ 互動：四種濾波器的頻率響應示意</h3>
+    <div class="interactive">
+      <div class="interactive-title">🎚️ 切換不同濾波器類型，觀察通帶與阻帶</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+        <button class="btn filter-btn" data-type="lowpass">Low-pass（&lt; 30 Hz）</button>
+        <button class="btn secondary filter-btn" data-type="highpass">High-pass（&gt; 0.5 Hz）</button>
+        <button class="btn secondary filter-btn" data-type="bandpass">Band-pass（α: 8–13 Hz）</button>
+        <button class="btn secondary filter-btn" data-type="notch">Notch（60 Hz）</button>
+      </div>
+      <div class="svg-figure" style="padding:8px;">
+        <svg id="filter-plot" viewBox="0 0 720 240" style="width:100%;max-width:780px;background:#fafbff;border-radius:8px;"></svg>
+        <div class="svg-caption" id="filter-cap">|H(f)| 在頻率域的形狀（橫軸 0–100 Hz）</div>
+      </div>
+      <div id="filter-info" class="callout info" style="margin-top:14px;"></div>
+    </div>
+
+    <h3>自適應濾波（Adaptive Filter）— Wiener / LMS / RLS</h3>
+    <p>當雜訊未知，但有<strong>參考訊號</strong>（如 EOG、ECG、fMRI 觸發訊號）時，可用自適應濾波。</p>
+    <ul>
+      <li><strong>Wiener 解：</strong>w = R⁻¹p（R 為自相關矩陣、p 為輸入-參考互相關），最小化均方誤差 (MSE)。</li>
+      <li><strong>LMS：</strong>w(n+1) = w(n) + 2μ·e(n)·r(n)。<u>條件：</u>0 &lt; μ &lt; 1/λ_max。簡單、運算快，但對相關訊號收斂慢。</li>
+      <li><strong>RLS：</strong>用遺忘因子 γ（0 &lt; γ ≤ 1）做指數加權最小平方。收斂快但對實時計算數值較不穩。</li>
+    </ul>
+
+    <div class="callout warning">
+      <div class="callout-title">⚠️ EEG 常見的偽訊與對策</div>
+      <ul style="margin:6px 0;">
+        <li>眨眼 (Eye-blink)：用 FP1、FP2 作參考，自適應消除。</li>
+        <li>ECG：可從心電通道做參考，自適應減除。</li>
+        <li>fMRI 同步紀錄的梯度偽訊：用 MRI 觸發時序做平均模板再扣除。</li>
+        <li>50/60 Hz：先 Notch；再做接地檢查、阻抗平衡。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 4.9 PCA / SVD ===== -->
+  <section id="s-pca" class="section">
+    <div class="section-header"><span class="section-number">4.9</span><h2>主成分分析 (PCA) 與奇異值分解 (SVD)</h2></div>
+    <p>DFT、DCT 等次最佳變換的基底與資料無關，無法最大化「分散資訊」。PCA / KLT 則找出一組<strong>正交基底</strong>，把資料的能量壓到最少的維度。</p>
+
+    <h3>SVD — 數值線性代數的瑞士刀</h3>
+    <p>任何 N × M 資料矩陣 A 可分解為 A = U Σ Vᴴ。U、V 是正交矩陣，Σ 是奇異值對角矩陣。</p>
+    <ul>
+      <li>Σ² = Λ（自相關矩陣的特徵值矩陣）。</li>
+      <li>奇異值由大到小排列；<strong>大奇異值對應主訊號子空間、小奇異值對應雜訊子空間</strong>。</li>
+      <li>Moore-Penrose pseudo-inverse：A† = U Σ† Vᴴ，可解最小二乘問題。</li>
+    </ul>
+
+    <h3>PCA = SVD 應用在共變異矩陣</h3>
+    <p>對共變異矩陣做 SVD，等同於 PCA：</p>
+    <ul>
+      <li>每個 eigenvector 是一個 principal component (PC)。</li>
+      <li>對應的 eigenvalue 反映該方向的變異量 (variance)。</li>
+      <li>取前 K 個 PC 重建，可降維、去雜訊、白化 (whitening)、做盲源分離的前處理（後續 ICA、CSP 都會用）。</li>
+    </ul>
+
+    <div class="callout key">
+      <div class="callout-title">🧮 PCA 在 EEG 的典型用途</div>
+      <ul style="margin:6px 0;">
+        <li><strong>濾波：</strong>切掉小奇異值對應的子空間，去掉雜訊。</li>
+        <li><strong>降維：</strong>把 64 通道 → 前 10 個 PC，再丟給分類器。</li>
+        <li><strong>白化：</strong>讓各分量變異數相等，是 ICA 演算法（FastICA, Infomax）的前置步驟。</li>
+        <li><strong>BSS：</strong>當原始來源彼此<strong>不相關</strong>但不一定獨立時，PCA 能做盲源分離。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 4.10 摘要 ===== -->
+  <section id="s-summary" class="section">
+    <div class="section-header"><span class="section-number">4.10</span><h2>本章摘要</h2></div>
+    <ul>
+      <li>EEG 是非線性、非平穩訊號；要用<strong>短窗 + 高階統計 + 自適應方法</strong>處理。</li>
+      <li>分段五準則 d₁~d₅ 可自動找邊界（自相關、kurtosis、週期圖、AR 殘差、AR 頻譜）。</li>
+      <li>時頻分析：<strong>STFT 受 Heisenberg 限制；Wavelet 多尺度；SSWT 後處理；Wigner-Ville 解析最佳但有交叉項；EMD 完全資料驅動。</strong></li>
+      <li>連結與因果：Coherency 找同步、Granger/DTF 找方向；DTF 由 MVAR 推出，常配 LWR + AIC。</li>
+      <li>濾波：Lowpass、Highpass、Notch + 自適應 LMS/RLS。</li>
+      <li>PCA/SVD 是子空間分離的瑞士刀，後續 ICA、CSP 都靠它打底。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🚀 下一步</div>
+      第 5 章以後會把這些工具串成<strong>實際的 EEG 分析管線</strong>：事件偵測、特徵提取、機器學習、深度學習與 BCI。
+    </div>
+  </section>
+
+  <section id="s-quiz">
+    <div id="quiz-host"></div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">本網頁內容依教學目的整理自 Sanei & Chambers (2022) 第 4 章。</div>
+</footer>
+
+<script src="../assets/js/api.js?v=1"></script>
+<script src="../assets/js/quiz-engine.js?v=1"></script>
+<script src="../assets/data/chapter04-questions.js?v=1"></script>
+<script src="../assets/js/chapter04.js?v=1"></script>
+</body>
+</html>

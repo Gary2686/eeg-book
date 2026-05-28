@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十二章 — 睡眠辨識、評分與異常 | EEG Signal Processing 互動教材</title>
+<meta name="description" content="EEG Signal Processing and Machine Learning, 2nd Edition — Chapter 12 Sleep Recognition, Scoring, and Abnormalities 互動式教學。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css?v=1">
+</head>
+<body>
+
+<!-- ===== 上方導覽 ===== -->
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html" class="site-logo">
+      <svg class="site-logo-icon" viewBox="0 0 32 32" fill="none">
+        <path d="M2 16 Q5 6 9 16 T16 16 T23 16 T30 16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+      </svg>
+      EEG 互動教材
+    </a>
+    <nav class="site-nav">
+      <a href="#s-overview">概覽</a>
+      <a href="#s-intro">12.1 引言</a>
+      <a href="#s-stages">12.2 睡眠分期</a>
+      <a href="#s-circadian">12.3 生理時鐘</a>
+      <a href="#s-deprivation">12.4 睡眠剝奪</a>
+      <a href="#s-scoring">12.6 自動評分</a>
+      <a href="#s-disorders">12.7 睡眠障礙</a>
+      <a href="#s-conn">12.10 腦連結</a>
+      <a href="#s-summary">12.11 摘要</a>
+      <a href="#s-quiz">📝 測驗</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== Hero ===== -->
+<section class="chapter-hero">
+  <div class="chapter-hero-inner">
+    <span class="chapter-tag">CHAPTER 12</span>
+    <h1 class="chapter-title">Sleep Recognition, Scoring, and Abnormalities</h1>
+    <p class="chapter-subtitle">睡眠的腦波密碼：從分期到自動評分、再到 apnea/失眠的偵測</p>
+    <div class="chapter-objectives">
+      <h3>🎯 本章學習目標</h3>
+      <ul>
+        <li>了解睡眠的五個階段 (W、N1、N2、N3、REM) 與各自的 EEG 特徵。</li>
+        <li>分辨 NREM 與 REM 的差別，並解釋睡眠紡錘波 (spindle)、K-complex、慢波 (slow wave) 的形狀與意義。</li>
+        <li>掌握生理時鐘 (circadian rhythm)、褪黑激素 (melatonin) 與睡眠的關聯。</li>
+        <li>說明自動睡眠分期 (automatic sleep scoring) 的常見流程：時頻分析 → 機器學習。</li>
+        <li>了解睡眠呼吸中止症 (sleep apnea)、發作性嗜睡 (narcolepsy)、失眠 (insomnia)、RBD 等常見睡眠障礙的 EEG / PSG 特徵。</li>
+        <li>理解多模態多項睡眠檢查 (Polysomnography, PSG) 的內容與用途。</li>
+        <li>初步認識 BIS（雙頻譜指數）在麻醉深度監測中的角色。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<main class="page">
+
+  <!-- ===== 概覽 ===== -->
+  <section id="s-overview" class="section">
+    <div class="section-header"><span class="section-number">OVERVIEW</span><h2>本章地圖</h2></div>
+    <p>人類每天約 1/3 的時間在睡覺，但科學家直到 20 世紀中才真正開始理解睡眠 — Loomis (1930s) 描繪了 NREM 各階段的 EEG；Aserinsky & Kleitman (1950s) 發現 REM。本章先回到生理層面解釋「為什麼要睡覺」，再進入工程主題：如何用 EEG + ML 自動把整晚訊號評分、偵測睡眠障礙。</p>
+    <div class="callout key">
+      <div class="callout-title">🧭 一張圖看懂本章</div>
+      整晚睡眠不是一個狀態，而是「W → N1 → N2 → N3 → REM」反覆切換的<strong>動態過程</strong>。每個階段都有獨特的 EEG 簽名（α 阻斷、紡錘波、K-complex、慢波、低振幅快波）— 這就是自動分期演算法的特徵來源。
+    </div>
+  </section>
+
+  <!-- ===== 12.1 引言 ===== -->
+  <section id="s-intro" class="section">
+    <div class="section-header"><span class="section-number">12.1</span><h2>引言 — 睡眠是什麼？</h2></div>
+    <p>歷史上，Aristotle 認為睡眠是「食物消化時的蒸氣上達腦部、把心臟冷卻」；後來才知道睡眠是<strong>活躍的動態過程</strong>。神經科學的定義：</p>
+    <ul>
+      <li>自然的、可被喚醒的「無意識狀態」（與昏迷 coma 不同 — coma 無法被喚醒）。</li>
+      <li>由腦幹的特定神經元主動「抑制」清醒系統而引發。</li>
+      <li>對大腦健康、免疫、生長激素分泌、記憶鞏固極為重要。</li>
+    </ul>
+
+    <h3>關鍵數字</h3>
+    <div class="callout key">
+      <ul style="margin:0;">
+        <li>一個完整睡眠週期 (cycle)：約 <strong>90 分鐘</strong>（NREM I→II→III→IV→REM）</li>
+        <li>整夜共 4–5 個 cycle</li>
+        <li>NREM Stage II：佔總睡眠的 <strong>40–50%</strong></li>
+        <li>REM：佔 <strong>20–25%</strong>；第一段約 10 分鐘，最後一段可能超過 60 分鐘</li>
+        <li>持續清醒 24 小時後，腦代謝顯著下降</li>
+      </ul>
+    </div>
+
+    <h3>睡眠障礙概觀</h3>
+    <p>國際睡眠障礙分類列出約 <strong>90 種</strong>睡眠障礙，最常見的包含：</p>
+    <ul>
+      <li><strong>Insomnia（失眠）</strong> — 最常見；本書亦在第 16 章作為精神疾病討論。</li>
+      <li><strong>Sleep apnea（睡眠呼吸中止症）</strong> — 含 OSA（阻塞型）與 CSA（中樞型）。</li>
+      <li><strong>Narcolepsy（猝睡症）</strong>。</li>
+      <li><strong>Restless Leg Syndrome（不寧腿綜合症）</strong>。</li>
+      <li><strong>REM Sleep Behavior Disorder (RBD)</strong> — REM 期肌肉麻痺失常、會「演夢」。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 12.2 睡眠分期 ===== -->
+  <section id="s-stages" class="section">
+    <div class="section-header"><span class="section-number">12.2</span><h2>睡眠的階段 — EEG 簽名</h2></div>
+    <p>傳統 R&K (Rechtschaffen & Kales) 系統把睡眠分為 W (Wake)、NREM I–IV 與 REM；AASM 2007 起把 III + IV 合併為 N3。每個階段都有獨特 EEG 圖樣：</p>
+
+    <h3>🌙 五階段腦波互動（點按鈕切換）</h3>
+    <div class="interactive">
+      <div class="interactive-title">五個睡眠階段的 EEG 簽名</div>
+      <div class="interactive-controls">
+        <button class="btn" data-stage="W">W 清醒</button>
+        <button class="btn" data-stage="N1">N1 入睡 (淺)</button>
+        <button class="btn" data-stage="N2">N2 紡錘 + K</button>
+        <button class="btn" data-stage="N3">N3 慢波/深睡</button>
+        <button class="btn" data-stage="REM">REM</button>
+      </div>
+      <div class="svg-figure" style="margin-top:12px;">
+        <svg id="sleep-wave" viewBox="0 0 720 200" style="width:100%;max-width:760px;background:#fafbff;border-radius:8px;"></svg>
+        <div class="svg-caption">藍色為當前階段 EEG 模式（示意），標籤指出 spindle / K-complex 等特徵</div>
+      </div>
+      <div id="sleep-desc" class="callout info" style="margin-top:12px;"></div>
+    </div>
+
+    <h3>📊 整晚的 Hypnogram（互動）</h3>
+    <p>把整晚每 30 秒的階段畫成階梯圖，就是 <strong>hypnogram</strong>。下圖是健康成人的典型樣式 — 把鼠標移到圖中查看各 epoch 的階段：</p>
+    <div class="interactive">
+      <div class="interactive-title">典型 8 小時 Hypnogram</div>
+      <div class="svg-figure">
+        <svg id="hypnogram" viewBox="0 0 760 240" style="width:100%;max-width:780px;background:#fafbff;border-radius:8px;"></svg>
+        <div class="svg-caption">REM 通常集中在後半夜；深層 N3 集中在前半夜。把鼠標移到任一段查看詳細階段。</div>
+      </div>
+      <div id="hypno-desc" class="callout info" style="margin-top:8px;">把鼠標移到上方圖中的階梯，會顯示對應的睡眠階段。</div>
+    </div>
+
+    <h3>NREM 與 REM 比較</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h4>NREM（非快速眼動）</h4>
+        <div class="pros">細分 N1 / N2 / N3</div>
+        <div class="pros">EEG 振幅大、頻率低（spindle、K-complex、δ 慢波）</div>
+        <div class="pros">分泌生長激素、記憶鞏固</div>
+        <div class="cons">N3 階段不易喚醒</div>
+      </div>
+      <div class="compare-card">
+        <h4>REM（快速眼動）</h4>
+        <div class="pros">眼球快速移動、心跳/呼吸快而不規律</div>
+        <div class="pros">EEG 像 wake：低振幅、快波</div>
+        <div class="pros">夢境多在 REM 出現</div>
+        <div class="cons">肌肉幾乎完全麻痺 (atonia)，RBD 病人此防護失效</div>
+      </div>
+    </div>
+
+    <h3>三個必須記住的「特徵波形」</h3>
+    <ul>
+      <li><strong>Sleep Spindle（紡錘波 / sigma activity）</strong>：11–15 Hz、持續 0.5–2.5 秒、振幅漸增漸減；主要出現在 N2，集中 frontal/vertex；最小振幅約 <strong>15 μV</strong>。</li>
+      <li><strong>K-complex</strong>：N2 特有；一個 sharp negative + 一個 slow component；對外界刺激的「保護性反應」。最大值在 vertex。</li>
+      <li><strong>Slow Wave Activity (SWA)</strong>：0.5–4 Hz、振幅大；佔 epoch 20–50% 為 N3、>50% 為 N4 (合稱 SWS)。最小振幅標準: 0.99 × VEEG + 28.18 μV。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 12.3 生理時鐘 ===== -->
+  <section id="s-circadian" class="section">
+    <div class="section-header"><span class="section-number">12.3</span><h2>生理時鐘 (Circadian Rhythm)</h2></div>
+    <p>「日夜變化」由下視丘 (hypothalamus) 主導，光線是最重要的「zeitgeber（授時因子）」。</p>
+    <ul>
+      <li><strong>褪黑激素 (melatonin)</strong>：由松果體分泌，<strong>夜間達峰</strong>；催促入睡的關鍵。</li>
+      <li><strong>體溫</strong>：白天高、夜間低，與睡眠相位平行。</li>
+      <li><strong>生長激素、催乳激素、睪固酮</strong>：夜間達分泌高峰。</li>
+    </ul>
+    <div class="callout warning">
+      <div class="callout-title">⚠️ 干擾睡眠的常見因素</div>
+      <ul style="margin:0;">
+        <li>咖啡因、減肥藥 → 難入睡</li>
+        <li>多數抗憂鬱藥 → 壓抑 REM</li>
+        <li>大量尼古丁 → 3–4 小時就因戒斷醒來</li>
+        <li>酒精 → 助入睡但<strong>削減 REM</strong>，整體更不深層</li>
+        <li>過熱/過冷環境 → 干擾 REM</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 12.4 睡眠剝奪 ===== -->
+  <section id="s-deprivation" class="section">
+    <div class="section-header"><span class="section-number">12.4</span><h2>睡眠剝奪 (Sleep Deprivation)</h2></div>
+    <p>睡眠剝奪是醫學上嚴肅的問題：</p>
+    <ul>
+      <li>每晚少睡 1 小時、累積數晚就會出現可量測的認知缺損（多數人不自覺）。</li>
+      <li>每晚只睡 5 小時、持續 1 週：簡單反應時間與計算正確率都下降。</li>
+      <li>判斷力下降 → 容易做高風險決策（因為前額葉與頂葉聯合區代謝降低）。</li>
+      <li>連續清醒 24–26 小時用於誘發癲癇腦波，是臨床上的「sleep deprivation activation」測試。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 12.6 EEG 評分 ===== -->
+  <section id="s-scoring" class="section">
+    <div class="section-header"><span class="section-number">12.6</span><h2>EEG 睡眠分析與自動評分</h2></div>
+    <p>整夜 PSG 動輒 8 小時、多通道；人工評分耗時。自動評分（automatic scoring）的核心思路：</p>
+    <ol>
+      <li><strong>段切 (epoching)</strong>：通常每 20–30 秒一個 epoch（R&K 標準）。</li>
+      <li><strong>特徵擷取</strong>：時域（hjorth、HOS）、頻域 (PSD)、時頻 (matching pursuit、wavelet)、複雜度 (entropy)。</li>
+      <li><strong>分類器</strong>：SVM、KNN、Decision Tree、ANN、CNN、Bi-LSTM。</li>
+      <li><strong>輸出</strong>：每個 epoch 的階段標籤 → hypnogram。</li>
+    </ol>
+
+    <h3>Matching Pursuit (MP) — 一種時頻適應分解</h3>
+    <p>Mallat & Zhang (1993) 提出 MP：把訊號分解為一組「Gabor 原子」之和：</p>
+    <p style="margin-left:1em;color:#475569;font-style:italic;">g_γ(t) = K(γ)·exp(−π·((t−u)/s)²)·cos(ω(t−u) + φ)</p>
+    <p>每個原子有三個參數 γ = {u, ω, s}（時間中心、頻率、時寬）；MP 自適應挑選最能解釋訊號的原子。<strong>每個 spindle / K-complex 都會對應到時頻平面的一個「斑點 (blob)」</strong>，方便偵測與分類。</p>
+
+    <h3>典型方案 (Prochazka et al.)</h3>
+    <p>對 33 健康 + 25 OSA + 18 OSA+RLS 受試者做 PSG，6 階 Savitzky–Golay 濾波 + wavelet 特徵 + Decision Tree / NN：<strong>W、REM、NREM 三類準確率 85.6–97.5%</strong>。</p>
+  </section>
+
+  <!-- ===== 12.7 睡眠障礙 ===== -->
+  <section id="s-disorders" class="section">
+    <div class="section-header"><span class="section-number">12.7</span><h2>睡眠障礙偵測與 PSG</h2></div>
+
+    <h3>多項睡眠檢查 (Polysomnography, PSG)</h3>
+    <p>PSG = 睡眠醫學的「金標準」，同時錄多種生理訊號：</p>
+    <ul>
+      <li><strong>EEG</strong>（多通道，常 F3/F4/C3/C4/O1/O2 等）</li>
+      <li><strong>EOG</strong>（眼動 — REM 偵測）</li>
+      <li><strong>EMG</strong>（下頷、腿肌）</li>
+      <li><strong>ECG</strong>、呼吸氣流、胸腹起伏、SpO₂、打鼾聲</li>
+    </ul>
+
+    <h3>睡眠呼吸中止症 (Sleep Apnea, SAS)</h3>
+    <ul>
+      <li>盛行率：30–60 歲女性約 2%、男性約 4%。</li>
+      <li><strong>OSA（阻塞型）</strong>：上呼吸道堵塞造成停止呼吸 ≥ 10 秒。</li>
+      <li><strong>CSA（中樞型）</strong>：呼吸中樞失常，上呼吸道與肺同時停止。</li>
+      <li>常用 SpO₂ + 打鼾聲就可粗略診斷，但 EEG 能加上「同步性」資訊（C3、C4 通道 coherence / MI）以區分 OSA / CSA / 控制組。</li>
+    </ul>
+
+    <h3>纖維肌痛症候群 (Fibromyalgia)</h3>
+    <p>FMS 病人常見「alpha-EEG anomaly」：<strong>α 波在不該出現的 N3 期深睡侵入</strong>，造成休息感不足。EEG 可作為診斷輔助。</p>
+
+    <h3>新生兒睡眠</h3>
+    <p>新生兒 apnea 與長期腦缺氧、低氧飽和有關；研究顯示氧飽和度下降 &gt; 20% 才會造成完整的 EEG suppression。</p>
+
+    <h3>夢境與 BIS（雙頻譜指數）</h3>
+    <ul>
+      <li>80–100% 的 REM 期被喚醒的人會說自己在做夢；NREM 期也有夢但較不情緒、較像連續性思考。</li>
+      <li>麻醉深度監測常用 <strong>BIS</strong>，將 EEG 時域、頻域、高階譜統合為一個 <strong>0–100</strong> 的指標（0 = flat EEG，100 = fully awake）。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 12.10 連結性 ===== -->
+  <section id="s-conn" class="section">
+    <div class="section-header"><span class="section-number">12.10</span><h2>睡眠中的腦功能連結性</h2></div>
+    <p>不只看單一通道，<strong>跨腦區的同步性</strong>也隨睡眠階段變化：</p>
+    <ul>
+      <li>Wake 與 N1：EEG coherence 主要在「同半球」內較高。</li>
+      <li>N2/N3/N4 與 REM：更多腦區進入相關，慢波 (delta) 尤其顯著。</li>
+      <li>左右半球的 δ 頻段 coherence 在所有睡眠階段都不同 — 暗示左右半球的「卸載任務」可能不同。</li>
+      <li>近年用 HMM (hidden Markov model) 對 EEG–fMRI 共同建模，能找到傳統 PSG 看不到的<strong>全腦網絡狀態</strong>。</li>
+    </ul>
+  </section>
+
+  <!-- ===== 12.11 摘要 ===== -->
+  <section id="s-summary" class="section">
+    <div class="section-header"><span class="section-number">12.11</span><h2>本章摘要</h2></div>
+    <ul>
+      <li>睡眠分為 W、NREM (N1–N3) 與 REM；每階段都有獨特 EEG 簽名（α 阻斷、紡錘波、K-complex、δ 慢波、低振幅快波）。</li>
+      <li>整夜由 4–5 個約 90 分鐘的 cycle 組成；前半夜以深睡 (SWS) 為主，後半夜以 REM 為主。</li>
+      <li>生理時鐘由下視丘控制，光線是 zeitgeber、褪黑激素夜間達峰。</li>
+      <li>自動評分流程：epoching → 時頻 / wavelet / MP 特徵 → SVM / DT / NN / Bi-LSTM 分類，準確率可達 85–97%。</li>
+      <li>PSG 是睡眠醫學金標準，同時錄 EEG、EOG、EMG、ECG、SpO₂、呼吸；可診斷 OSA、CSA、narcolepsy、RBD 等。</li>
+      <li>未來方向：EEG–fMRI 聯合、HMM 建模整夜全腦狀態切換。</li>
+    </ul>
+    <div class="callout tip">
+      <div class="callout-title">🚀 下一步</div>
+      第 13 章將從「睡眠」進入「清醒但累」的議題 — 精神疲勞 (mental fatigue) 的 EEG 監測，是駕駛、飛行員安全研究的核心。
+    </div>
+  </section>
+
+  <!-- ===== Quiz ===== -->
+  <section id="s-quiz">
+    <div id="quiz-host"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div>EEG Signal Processing and Machine Learning, 2nd Edition — 互動式教材</div>
+  <div class="copyright">© 版權所有　葉欲禾 (Gary Yu-Ho YEH)</div>
+  <div style="opacity:0.7;font-size:12px;">本網頁內容依教學目的整理自 Sanei & Chambers (2022) 第 12 章。</div>
+</footer>
+
+<script src="../assets/js/api.js?v=1"></script>
+<script src="../assets/js/quiz-engine.js?v=1"></script>
+<script src="../assets/data/chapter12-questions.js?v=1"></script>
+<script src="../assets/js/chapter12.js?v=1"></script>
+</body>
+</html>
